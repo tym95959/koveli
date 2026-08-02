@@ -102,10 +102,24 @@
             <div class="section-box-green">
                 <h4 style="color: #2c6e2c; margin-bottom: 10px;">🤝 Accept Staff</h4>
                 <div class="field-row">
-                    <label>👤 Select Staff</label>
-                    <select id="dutyAcceptStaff">
-                        <option value="">-- Select Accepting Staff --</option>
-                    </select>
+                    <label>👤 Search Staff</label>
+                    <div class="accept-search-container" id="acceptSearchContainer">
+                        <input
+                            type="text"
+                            id="acceptSearchInput"
+                            placeholder="🔍 Search by Name or RC..."
+                            autocomplete="off"
+                        >
+                        <div class="dropdown-list" id="acceptDropdownList"></div>
+                    </div>
+                    <input type="hidden" id="dutyAcceptStaff" value="">
+                    <div id="acceptSelectedDisplay" style="display: none;">
+                        <div class="selected-user">
+                            <span id="acceptSelectedName">—</span>
+                            <span id="acceptSelectedRc" style="color:#2c6e2c;font-size:0.7rem;"></span>
+                            <span class="remove-btn" id="clearAcceptStaff">×</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="field-row">
                     <label>Name</label>
