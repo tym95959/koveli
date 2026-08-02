@@ -15,6 +15,12 @@ let isDropdownOpen = false;
 let dropdownList = null;
 let searchInput = null;
 
+// Accept Staff Search variables
+let acceptSearchTimeout = null;
+let acceptDropdownList = null;
+let acceptSearchInput = null;
+let acceptStaffData = [];
+
 // ========== FIREBASE INITIALIZATION ==========
 function initFirebase() {
     if (typeof firebase !== 'undefined' && firebase.firestore) {
@@ -1205,6 +1211,242 @@ function setupSearchableDropdown() {
     };
 }
 
+// ========== ACCEPT STAFF SEARCH FUNCTIONS ==========
+function setupAcceptStaffSearch() {
+    acceptSearchInput = document.getElementById('acceptSearchInput');
+    acceptDropdownList = document.getElementById('acceptDropdownList');
+    const hiddenSelect = document.getElementById('dutyAcceptStaff');
+    const selectedDisplay = document.getElementById('acceptSelectedDisplay');
+    const selectedName = document.getElementById('acceptSelectedName');
+    const selectedRc = document.getElementById('acceptSelectedRc');
+    const clearBtn = document.getElementById('clearAcceptStaff');
+
+    if (!acceptSearchInput) return;
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+        const container = document.getElementById('acceptSearchContainer');
+        if (container && !container.contains(e.target)) {
+            acceptDropdownList.classList.remove('show');
+        }
+    });
+
+    // Handle input search
+    acceptSearchInput.addEventListener('input', async (e) => {
+        const term = e.target.value;
+
+        if (acceptSearchTimeout) {
+            clearTimeout(acceptSearchTimeout);
+        }
+
+        if (term.length < 2) {
+            acceptDropdownList.classList.remove('show');
+            return;
+        }
+
+        // Show loading state
+        acceptDropdownList.innerHTML = `
+            <div class="loading-results">
+                <span class="spinner-small"></span> Searching staff...
+            </div>
+        `;
+        acceptDropdownList.classList.add('show');
+
+        acceptSearchTimeout = setTimeout(async () => {
+            const results = await searchAcceptStaff(term);
+            renderAcceptDropdownResults(results, term);
+        }, 400);
+    });
+
+    // Handle Enter key
+    acceptSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const term = acceptSearchInput.value;
+            if (term.length >= 2) {
+                searchAcceptStaff(term).then(results => {
+                    renderAcceptDropdownResults(results, term);
+                });
+            }
+        }
+        // Arrow keys for navigation
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const items = acceptDropdownList.querySelectorAll('.dropdown-item');
+            if (items.length === 0) return;
+
+            let currentIndex = -1;
+            items.forEach((item, index) => {
+                if (item.classList.contains('active')) {
+                    currentIndex = index;
+                    item.classList.remove('active');
+                }
+            });
+
+            let newIndex = e.key === 'ArrowDown' ?
+                (currentIndex + 1) % items.length :
+                (currentIndex - 1 + items.length) % items.length;
+
+            items[newIndex].classList.add('active');
+            items[newIndex].scrollIntoView({ block: 'nearest' });
+        }
+    });
+
+    // Search accept staff
+    async function searchAcceptStaff(searchTerm) {
+        if (!currentLoggedInStaff) {
+            showTemporaryFeedback('⚠️ Please login first', true);
+            return [];
+        }
+
+        const term = searchTerm.toLowerCase().trim();
+        if (term.length < 2) return [];
+
+        // Use existing staffData or load from Firebase
+        let staffToSearch = staffData.length > 0 ? staffData : await loadStaffFromFirebase(term);
+        
+        // Filter: same role, exclude self
+        const numericTerm = term.replace(/[^0-9]/g, '');
+        const filtered = staffToSearch.filter(s => 
+            s.role === currentLoggedInStaff.role && 
+            s.id !== currentLoggedInStaff.id &&
+            (s.name.toLowerCase().includes(term) || 
+             s.rcno.toString().toLowerCase().includes(term) ||
+             s.rcno.toString().toLowerCase().replace(/[^0-9]/g, '').includes(numericTerm))
+        );
+
+        acceptStaffData = filtered;
+        return filtered;
+    }
+
+    // Render dropdown results
+    function renderAcceptDropdownResults(results, searchTerm) {
+        if (!acceptDropdownList) return;
+
+        if (results.length === 0) {
+            acceptDropdownList.innerHTML = `
+                <div class="no-results">No staff found matching "<strong>${searchTerm}</strong>"</div>
+            `;
+            return;
+        }
+
+        const term = searchTerm.toLowerCase().trim();
+        const numericTerm = term.replace(/[^0-9]/g, '');
+        let html = '';
+
+        results.forEach(staff => {
+            const nameMatch = staff.name.toLowerCase().includes(term);
+            const rcFullMatch = staff.rcno.toString().toLowerCase().includes(term);
+            const rcNumericMatch = numericTerm.length > 0 && 
+                staff.rcno.toString().toLowerCase().replace(/[^0-9]/g, '').includes(numericTerm);
+            const rcMatch = rcFullMatch || rcNumericMatch;
+
+            let displayName = staff.name;
+            if (nameMatch) {
+                const index = staff.name.toLowerCase().indexOf(term);
+                displayName = staff.name.substring(0, index) +
+                    `<span class="highlight">${staff.name.substring(index, index + term.length)}</span>` +
+                    staff.name.substring(index + term.length);
+            }
+
+            let displayRc = staff.rcno;
+            if (rcMatch && numericTerm.length > 0) {
+                const rcStr = staff.rcno.toString();
+                const rcLower = rcStr.toLowerCase();
+                const idx = rcLower.indexOf(numericTerm);
+                if (idx !== -1) {
+                    displayRc = rcStr.substring(0, idx) +
+                        `<span class="highlight">${rcStr.substring(idx, idx + numericTerm.length)}</span>` +
+                        rcStr.substring(idx + numericTerm.length);
+                }
+            }
+
+            html += `
+                <div class="dropdown-item" data-id="${staff.id}" data-name="${staff.name}" data-rc="${staff.rcno}" data-role="${staff.role}">
+                    <div class="item-row">
+                        <span>${displayName}</span>
+                        <span class="rc-display">${displayRc}</span>
+                    </div>
+                    <div class="item-meta">
+                        <span class="role-badge">${staff.role}</span>
+                        ${rcMatch ? '<span class="match-badge">✅ RC Match</span>' : ''}
+                        ${nameMatch ? '<span class="match-badge">✅ Name Match</span>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        acceptDropdownList.innerHTML = html;
+
+        // Add click handlers
+        acceptDropdownList.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.dataset.id;
+                const name = item.dataset.name;
+                const rc = item.dataset.rc;
+                const role = item.dataset.role;
+
+                selectAcceptStaff(id, name, rc, role);
+                acceptDropdownList.classList.remove('show');
+                acceptSearchInput.value = name;
+            });
+
+            item.addEventListener('mouseenter', () => {
+                acceptDropdownList.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
+    }
+
+    // Select accept staff
+    function selectAcceptStaff(id, name, rc, role) {
+        hiddenSelect.value = id;
+        selectedName.textContent = name;
+        selectedRc.textContent = `RC: ${rc} | ${role}`;
+        selectedDisplay.style.display = 'block';
+
+        // Update the readonly fields
+        document.getElementById('acceptStaffName').value = name;
+        document.getElementById('acceptStaffRcNo').value = rc;
+
+        // Trigger change event
+        const event = new Event('change');
+        hiddenSelect.dispatchEvent(event);
+        
+        // Update summary
+        updateRequestSummary();
+    }
+
+    // Clear selected accept staff
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            hiddenSelect.value = '';
+            selectedDisplay.style.display = 'none';
+            acceptSearchInput.value = '';
+            acceptDropdownList.classList.remove('show');
+            document.getElementById('acceptStaffName').value = '';
+            document.getElementById('acceptStaffRcNo').value = '';
+            
+            const event = new Event('change');
+            hiddenSelect.dispatchEvent(event);
+            updateRequestSummary();
+        });
+    }
+
+    // Show dropdown when input gets focus
+    acceptSearchInput.addEventListener('focus', () => {
+        if (acceptSearchInput.value.length >= 2 && acceptStaffData.length > 0) {
+            acceptDropdownList.classList.add('show');
+            renderAcceptDropdownResults(acceptStaffData, acceptSearchInput.value);
+        } else if (acceptSearchInput.value.length >= 2) {
+            const term = acceptSearchInput.value;
+            searchAcceptStaff(term).then(results => {
+                renderAcceptDropdownResults(results, term);
+            });
+        }
+    });
+}
+
 // ========== DUTY CHANGE UI ==========
 function populateDutyForm(staff) {
     document.getElementById('requestStaffName').value = staff.name;
@@ -1213,34 +1455,8 @@ function populateDutyForm(staff) {
     const dateInput = document.getElementById('swapDate');
     if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
 
-    updateAcceptStaffDropdown();
-    document.getElementById('submitDutyChangeBtn').disabled = false;
     updateRequestSummary();
-}
-
-function updateAcceptStaffDropdown() {
-    const acceptSelect = document.getElementById('dutyAcceptStaff');
-    if (!acceptSelect || !currentLoggedInStaff) return;
-
-    const currentVal = acceptSelect.value;
-    acceptSelect.innerHTML = '<option value="">-- Select Accepting Staff --</option>';
-
-    const sameRoleStaff = staffData.filter(s =>
-        s.role === currentLoggedInStaff.role &&
-        s.id !== currentLoggedInStaff.id
-    );
-
-    sameRoleStaff.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = `${s.name} (RC: ${s.rcno})`;
-        acceptSelect.appendChild(opt);
-    });
-
-    if (currentVal && acceptSelect.querySelector(`option[value="${currentVal}"]`)) {
-        acceptSelect.value = currentVal;
-        updateAcceptStaffDetails(currentVal);
-    }
+    document.getElementById('submitDutyChangeBtn').disabled = false;
 }
 
 function updateAcceptStaffDetails(staffId) {
@@ -1609,8 +1825,23 @@ function logoutUser() {
         hiddenSelect.value = '';
     }
 
+    // Reset accept staff search
+    if (acceptSearchInput) {
+        acceptSearchInput.value = '';
+    }
+    const acceptSelectedDisplay = document.getElementById('acceptSelectedDisplay');
+    if (acceptSelectedDisplay) {
+        acceptSelectedDisplay.style.display = 'none';
+    }
+    if (acceptDropdownList) {
+        acceptDropdownList.classList.remove('show');
+    }
+    document.getElementById('dutyAcceptStaff').value = '';
+
     document.getElementById('requestStaffName').value = '';
     document.getElementById('requestStaffRcNo').value = '';
+    document.getElementById('acceptStaffName').value = '';
+    document.getElementById('acceptStaffRcNo').value = '';
     document.getElementById('submitDutyChangeBtn').disabled = true;
     document.getElementById('requestLimitDisplay').style.display = 'none';
     document.getElementById('requestLimitWarning').style.display = 'none';
@@ -1618,9 +1849,6 @@ function logoutUser() {
     document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
     document.getElementById('adminSection').style.display = 'none';
     document.getElementById('requestSummary').innerHTML = '<p style="color: #b28b44; font-size:0.85rem;">Please login to see summary</p>';
-    document.getElementById('dutyAcceptStaff').value = '';
-    document.getElementById('acceptStaffName').value = '';
-    document.getElementById('acceptStaffRcNo').value = '';
     document.getElementById('acceptCurrentDuty').value = '';
     document.getElementById('swapReason').value = '';
 
@@ -1767,10 +1995,13 @@ async function initApp() {
     initChangePatternGrid();
     buildChangePinKeypad();
 
-    // 3. Setup searchable dropdown
+    // 3. Setup searchable dropdown for login
     const searchDropdown = setupSearchableDropdown();
 
-    // 4. Check for persistent login
+    // 4. Setup accept staff search
+    setupAcceptStaffSearch();
+
+    // 5. Check for persistent login
     const savedStaff = getLoggedInStaff();
     if (savedStaff) {
         const staff = getStaffById(savedStaff.id);
@@ -1843,6 +2074,7 @@ async function initApp() {
         }
     });
 
+    // ========== ACCEPT STAFF SELECT EVENT ==========
     document.getElementById('dutyAcceptStaff').addEventListener('change', (e) => {
         updateAcceptStaffDetails(e.target.value);
     });
