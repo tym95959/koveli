@@ -263,7 +263,7 @@ input[readonly] {
 
 .field-row input, .field-row select {
     flex: 1;
-    min-width: 180px;
+    min-width: 200px;
     padding: 10px 16px;
     border-radius: 36px;
     border: 1.5px solid #e8d6a8;
@@ -652,6 +652,21 @@ input[readonly] {
     gap: 12px;
     margin-top: 20px;
 }
+
+.duty-badge {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.duty-morning1 { background: #fde68a; color: #78350f; }
+.duty-morning2 { background: #fcd34d; color: #78350f; }
+.duty-afternoon1 { background: #fdba74; color: #7c2d12; }
+.duty-afternoon2 { background: #fb923c; color: #7c2d12; }
+.duty-night { background: #818cf8; color: #1e1b4b; }
+.duty-off { background: #d1d5db; color: #1f2937; }
 
 @media (max-width: 650px) {
     .app-card {
