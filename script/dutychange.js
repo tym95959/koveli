@@ -1,30 +1,14 @@
-import { staffList } from './staff.js';
-
 // ========== FIREBASE ==========
 let db = null;
 let firebaseConnected = false;
 let allRequestsCache = [];
-
-function initFirebase() {
-    if (typeof firebase !== 'undefined' && firebase.firestore) {
-        try {
-            db = firebase.firestore();
-            firebaseConnected = true;
-            console.log("✅ Firebase connected");
-            return true;
-        } catch (error) { 
-            console.error("Firestore error:", error);
-            return false;
-        }
-    }
-    return false;
-}
-
-// ========== STAFF DATA ==========
 let staffData = [];
 let currentLoggedInStaff = null;
 let pendingAuthResolve = null;
 let pendingAuth = { staff: null, viewType: null, selectEl: null, prevDropdownValue: null };
+let staffLoaded = false;
+let isStaffLoading = false;
+let searchTimeout = null;
 
 // ========== PERSISTENT LOGIN ==========
 const STORAGE_KEY = 'dutyChangeLoggedInStaff';
@@ -47,8 +31,10 @@ function getLoggedInStaff() {
         const data = localStorage.getItem(STORAGE_KEY);
         if (data) {
             const parsed = JSON.parse(data);
-            // Find full staff data
-            return staffData.find(s => s.id === parsed.id) || null;
+            if (staffData.length > 0) {
+                return staffData.find(s => s.id === parsed.id) || null;
+            }
+            return parsed;
         }
         return null;
     } catch {
@@ -56,27 +42,127 @@ function getLoggedInStaff() {
     }
 }
 
-function initStaffData() {
-    staffData = staffList.map(staff => ({
-        id: staff.id,
-        name: staff.name,
-        role: staff.role || 'Staff',
-        contact: staff.contact || '',
-        rcno: staff.id,
-        pass: staff.pass || '',
-        pattern: staff.pattern || '',
-        email: staff.email || ''
-    }));
-    return staffData;
+// ========== STAFF DATA FROM FIREBASE (LAZY LOAD) ==========
+async function loadStaffFromFirebase(searchTerm = '') {
+    if (!db || !firebaseConnected) {
+        console.warn('Firebase not connected');
+        return [];
+    }
+    
+    if (isStaffLoading) {
+        console.log('⏳ Staff already loading...');
+        return [];
+    }
+    
+    // Only search if term is 4 characters or more
+    if (searchTerm.length < 4) {
+        // If we already have staff loaded, filter locally
+        if (staffLoaded && staffData.length > 0) {
+            return staffData;
+        }
+        // If no search term and no staff loaded, return empty
+        if (searchTerm.length === 0) {
+            return [];
+        }
+        // If less than 4 chars, don't search
+        console.log('🔍 Type at least 4 characters to search');
+        return [];
+    }
+    
+    isStaffLoading = true;
+    
+    try {
+        const term = searchTerm.toLowerCase().trim();
+        console.log(`🔍 Searching for: "${term}"`);
+        
+        // Get all staff and filter locally (Firebase doesn't support partial matches well)
+        const snapshot = await db.collection('staff').get();
+        
+        if (snapshot.empty) {
+            console.log('📭 No staff found in Firebase');
+            isStaffLoading = false;
+            return [];
+        }
+        
+        const allStaff = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            allStaff.push({
+                id: doc.id,
+                name: data.name || '',
+                role: data.role || 'Staff',
+                contact: data.contact || '',
+                rcno: data.rcno || doc.id,
+                pass: data.pass || '',
+                pattern: data.pattern || '',
+                email: data.email || ''
+            });
+        });
+        
+        // Filter by search term (name or RC)
+        const filtered = allStaff.filter(s => 
+            s.name.toLowerCase().includes(term) || 
+            s.rcno.toString().includes(term)
+        );
+        
+        staffData = filtered;
+        staffLoaded = true;
+        console.log(`📋 Found ${staffData.length} staff matching "${term}"`);
+        return staffData;
+        
+    } catch(e) {
+        console.error('❌ Error loading staff:', e);
+        return [];
+    } finally {
+        isStaffLoading = false;
+    }
+}
+
+// ========== LOAD ALL STAFF (for already logged in user) ==========
+async function loadStaffForLoggedInUser() {
+    if (!db || !firebaseConnected) return false;
+    
+    try {
+        const snapshot = await db.collection('staff').get();
+        const allStaff = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            allStaff.push({
+                id: doc.id,
+                name: data.name || '',
+                role: data.role || 'Staff',
+                contact: data.contact || '',
+                rcno: data.rcno || doc.id,
+                pass: data.pass || '',
+                pattern: data.pattern || '',
+                email: data.email || ''
+            });
+        });
+        staffData = allStaff;
+        staffLoaded = true;
+        console.log(`📋 Loaded ${staffData.length} staff for logged in user`);
+        return true;
+    } catch(e) {
+        console.error('❌ Error loading staff:', e);
+        return false;
+    }
 }
 
 function getStaffById(id) { 
     return staffData.find(s => s.id === id); 
 }
 
+function searchStaff(searchTerm) {
+    if (!searchTerm || searchTerm.length < 2) return [];
+    const term = searchTerm.toLowerCase().trim();
+    return staffData.filter(s => 
+        s.name.toLowerCase().includes(term) || 
+        s.rcno.toString().includes(term)
+    );
+}
+
 function getFilteredStaffForLogin() {
     if (!currentLoggedInStaff) return staffData;
-    // Only show staff with same role for swapping
     return staffData.filter(s => s.role === currentLoggedInStaff.role && s.id !== currentLoggedInStaff.id);
 }
 
@@ -91,22 +177,24 @@ function getAdminEmail() {
     return admin?.email || 'admin@example.com';
 }
 
-async function loadCredentialsFromFirebase() {
+// ========== LOAD SPECIFIC STAFF CREDENTIALS ==========
+async function loadSpecificStaffCredentials(staffId) {
     if (!db || !firebaseConnected) return false;
     try {
-        const snapshot = await db.collection('staff').get();
-        snapshot.forEach(doc => {
+        const doc = await db.collection('staff').doc(staffId).get();
+        if (doc.exists) {
             const data = doc.data();
-            const staff = staffData.find(s => s.id === doc.id);
+            const staff = staffData.find(s => s.id === staffId);
             if (staff) { 
                 staff.pass = data.pass || ''; 
                 staff.pattern = data.pattern || '';
                 staff.email = data.email || staff.email || '';
             }
-        });
-        return true;
+            return true;
+        }
+        return false;
     } catch(e) { 
-        console.warn('Load credentials error:', e);
+        console.warn('Load staff credentials error:', e);
         return false; 
     }
 }
@@ -902,16 +990,25 @@ function updateLoginDropdown() {
     const currentValue = loginSelect.value;
     loginSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
     
+    // Show hint about typing
+    if (staffData.length === 0) {
+        const hint = document.createElement('option');
+        hint.value = '';
+        hint.textContent = '🔍 Type 4+ characters to search';
+        hint.disabled = true;
+        loginSelect.appendChild(hint);
+        return;
+    }
+    
     let staffToShow = staffData;
     if (currentLoggedInStaff) {
-        // Only show staff with same role for swapping
         staffToShow = staffData.filter(s => s.role === currentLoggedInStaff.role);
     }
     
     staffToShow.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
-        opt.textContent = `${s.name} (RC: ${s.rcno}) [${s.role}]`;
+        opt.textContent = `${s.name} (RC: ${s.rcno})`;
         loginSelect.appendChild(opt);
     });
     
@@ -942,7 +1039,6 @@ function updateAcceptStaffDropdown() {
     const currentVal = acceptSelect.value;
     acceptSelect.innerHTML = '<option value="">-- Select Accepting Staff --</option>';
     
-    // Only show staff with same role
     const sameRoleStaff = staffData.filter(s => 
         s.role === currentLoggedInStaff.role && 
         s.id !== currentLoggedInStaff.id
@@ -1098,7 +1194,6 @@ async function submitDutyChange() {
         return; 
     }
     
-    // Check same role
     if (currentLoggedInStaff.role !== acceptStaff.role) {
         showTemporaryFeedback(`⚠️ You can only swap with ${currentLoggedInStaff.role}s`, true);
         return;
@@ -1463,29 +1558,108 @@ function showTemporaryFeedback(message, isError = false) {
     }, 2500);
 }
 
-// ========== INIT ==========
-async function initApp() {
-    initFirebase();
-    initStaffData();
+// ========== SEARCH STAFF ==========
+async function handleStaffSearch(searchTerm) {
+    const loginSelect = document.getElementById('loginStaffSelect');
+    if (!loginSelect) return;
     
-    if (firebaseConnected) {
-        await loadCredentialsFromFirebase();
+    // Clear previous timeout
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
     }
     
+    // If less than 4 characters, show hint
+    if (searchTerm.length < 4) {
+        loginSelect.innerHTML = `
+            <option value="">-- Select Staff Member --</option>
+            <option value="" disabled>🔍 Type 4+ characters to search</option>
+        `;
+        return;
+    }
+    
+    // Show loading state
+    loginSelect.innerHTML = `
+        <option value="">-- Searching... --</option>
+    `;
+    
+    // Debounce search
+    searchTimeout = setTimeout(async () => {
+        await loadStaffFromFirebase(searchTerm);
+        updateLoginDropdown();
+        
+        // If we found staff and user is already logged in, update accept dropdown too
+        if (currentLoggedInStaff && staffData.length > 0) {
+            updateAcceptStaffDropdown();
+        }
+    }, 500); // Wait 500ms after user stops typing
+}
+
+// ========== INIT ==========
+async function initApp() {
+    console.log('🚀 Initializing Duty Change App...');
+    
+    // 1. Initialize Firebase
+    initFirebase();
+    
+    // 2. Setup UI components (no Firebase calls)
     initPatternLock();
     buildKeypad();
     initChangePatternGrid();
     buildChangePinKeypad();
     
-    // Setup login dropdown
+    // 3. Setup login dropdown with search input
     const loginSelect = document.getElementById('loginStaffSelect');
-    updateLoginDropdown();
     
-    // Check for persistent login
+    // Create an input for searching staff
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = '🔍 Type name or RC (min 4 chars)...';
+    searchInput.style.cssText = `
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 0.95rem;
+        border: 1.5px solid #e8d6a8;
+        border-radius: 28px;
+        background: white;
+        margin-bottom: 8px;
+        outline: none;
+    `;
+    
+    // Insert search input before the select
+    const parent = loginSelect.parentElement;
+    parent.insertBefore(searchInput, loginSelect);
+    
+    // Handle search input
+    searchInput.addEventListener('input', (e) => {
+        handleStaffSearch(e.target.value);
+    });
+    
+    // Also handle search on Enter key
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const term = e.target.value;
+            if (term.length >= 4) {
+                loadStaffFromFirebase(term).then(() => {
+                    updateLoginDropdown();
+                    if (currentLoggedInStaff && staffData.length > 0) {
+                        updateAcceptStaffDropdown();
+                    }
+                });
+            }
+        }
+    });
+    
+    // 4. Check for persistent login
     const savedStaff = getLoggedInStaff();
     if (savedStaff) {
         const staff = getStaffById(savedStaff.id);
         if (staff) {
+            // Load credentials for this staff
+            await loadSpecificStaffCredentials(staff.id);
+            
+            // Also load all staff data for this user (only once)
+            await loadStaffForLoggedInUser();
+            
             currentLoggedInStaff = staff;
             document.getElementById('currentUserDisplay').style.display = 'inline-block';
             document.getElementById('currentUserName').innerHTML = `${staff.name} (RC: ${staff.rcno})`;
@@ -1498,8 +1672,12 @@ async function initApp() {
             
             showTemporaryFeedback(`👋 Welcome back ${staff.name}!`);
         }
+    } else {
+        // Show empty state with search hint
+        updateLoginDropdown();
     }
     
+    // ========== LOGIN EVENT ==========
     loginSelect.addEventListener('change', async (e) => {
         const selectedValue = e.target.value;
         if (!selectedValue) {
@@ -1510,6 +1688,7 @@ async function initApp() {
         }
         const s = getStaffById(selectedValue);
         if (s) {
+            await loadSpecificStaffCredentials(s.id);
             const result = await openPasswordModal(s, loginSelect, loginSelect.value);
             if (!result?.success) {
                 if (currentLoggedInStaff) loginSelect.value = currentLoggedInStaff.id;
@@ -1616,7 +1795,6 @@ async function initApp() {
     }
     
     console.log('✅ Duty Swap App initialized');
-    console.log(`📊 ${staffData.length} staff members loaded`);
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
