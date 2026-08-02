@@ -185,6 +185,35 @@ async function deleteDutyChange(requestId) {
     }
 }
 
+// ========== ADMIN FUNCTIONS ==========
+async function deleteAllDutyChanges() {
+    if (!db || !firebaseConnected) return false;
+    if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
+        showTemporaryFeedback('❌ Only supervisors can delete all requests', true);
+        return false;
+    }
+    
+    if (!confirm('⚠️ Are you sure you want to delete ALL duty change requests? This action cannot be undone!')) {
+        return false;
+    }
+    
+    try {
+        const snapshot = await db.collection('dutyChanges').get();
+        const batch = db.batch();
+        snapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        showTemporaryFeedback('✅ All duty change requests deleted successfully!');
+        await loadAllData();
+        return true;
+    } catch(e) {
+        console.error('Delete all error:', e);
+        showTemporaryFeedback('❌ Failed to delete all requests', true);
+        return false;
+    }
+}
+
 // ========== REQUEST LIMIT CHECKS ==========
 function getRequestLimitInfo(staffId, allRequests) {
     const currentHalf = getCurrentMonthHalf();
@@ -708,6 +737,7 @@ async function loadAllData() {
     
     await loadMyDutyRequests();
     await loadReceivedRequests();
+    await loadAdminRequests();
     updateRequestSummary();
 }
 
@@ -870,7 +900,7 @@ async function loadMyDutyRequests() {
     `).join('');
 }
 
-// ========== RECEIVED REQUESTS - ACCEPT STAFF CAN ACCEPT/REJECT ==========
+// ========== RECEIVED REQUESTS ==========
 async function loadReceivedRequests() {
     const container = document.getElementById('receivedRequestsList');
     if (!currentLoggedInStaff) {
@@ -878,17 +908,14 @@ async function loadReceivedRequests() {
         return;
     }
     
-    // Get ALL pending requests where this staff is the accept staff
     const allRequests = await loadDutyChangeRequests({ 
         acceptStaffId: currentLoggedInStaff.id,
         status: 'pending'
     });
     
-    // Filter for current period
     const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
     
     console.log('📩 Received pending requests for', currentLoggedInStaff.name, ':', currentPeriodRequests.length);
-    console.log('📩 Requests:', currentPeriodRequests);
     
     if (currentPeriodRequests.length === 0) {
         container.innerHTML = '<div class="empty-state">No pending requests received from other staff for current period</div>';
@@ -917,6 +944,77 @@ async function loadReceivedRequests() {
             </div>
         </div>
     `).join('');
+}
+
+// ========== ADMIN REQUESTS - ALL REQUESTS WITH DELETE ==========
+async function loadAdminRequests() {
+    const container = document.getElementById('adminRequestsList');
+    const section = document.getElementById('adminSection');
+    
+    // Only show for Supervisor/Admin
+    if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
+        section.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    const allRequests = await loadDutyChangeRequests({});
+    const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
+    
+    if (currentPeriodRequests.length === 0) {
+        container.innerHTML = '<div class="empty-state">No swap requests for current period</div>';
+        return;
+    }
+    
+    const statusMap = {
+        'pending': '⏳ Pending',
+        'approved': '✅ Approved',
+        'rejected': '❌ Rejected'
+    };
+    
+    container.innerHTML = currentPeriodRequests.map(r => `
+        <div class="request-item" style="border-left: 4px solid #c25d2e; background: #fff5f5;">
+            <div class="request-info">
+                <div><strong>📅 ${r.swapDate}</strong></div>
+                <div style="font-size: 0.85rem; margin-top: 4px;">
+                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+                </div>
+                <div style="font-size: 0.85rem;">
+                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                </div>
+                ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
+                <div style="margin-top: 4px;">
+                    Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                    ${r.isOffDutySwap ? ' <span style="font-size: 0.7rem; color: #b8860b;">(Off Duty swap)</span>' : ''}
+                </div>
+            </div>
+            <div class="request-actions">
+                <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="window.deleteDutyRequest('${r.id}')">🗑️ Delete</button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Add "Delete All" button if there are requests
+    if (currentPeriodRequests.length > 0) {
+        const deleteAllBtn = document.createElement('button');
+        deleteAllBtn.className = 'btn-danger';
+        deleteAllBtn.style.cssText = 'width: 100%; padding: 12px; margin-top: 15px; font-size: 1rem;';
+        deleteAllBtn.textContent = '🗑️ Delete All Requests';
+        deleteAllBtn.onclick = deleteAllDutyChanges;
+        
+        // Check if button already exists
+        const existingBtn = container.parentElement.querySelector('.delete-all-btn');
+        if (!existingBtn) {
+            const wrapper = container.parentElement;
+            const btn = document.createElement('div');
+            btn.className = 'delete-all-btn';
+            btn.style.cssText = 'margin-top: 10px;';
+            btn.appendChild(deleteAllBtn);
+            wrapper.appendChild(btn);
+        }
+    }
 }
 
 // ========== GLOBAL FUNCTIONS ==========
@@ -1002,7 +1100,6 @@ async function initApp() {
     initChangePatternGrid();
     buildChangePinKeypad();
     
-    // Populate login dropdown
     const loginSelect = document.getElementById('loginStaffSelect');
     loginSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
     staffData.forEach(s => {
@@ -1023,6 +1120,7 @@ async function initApp() {
                 document.getElementById('requestLimitDisplay').style.display = 'none';
                 document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
                 document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
+                document.getElementById('adminSection').style.display = 'none';
                 updateRequestSummary();
             }
             return;
@@ -1076,7 +1174,6 @@ async function initApp() {
     document.getElementById('deleteNumericBtn').onclick = deleteNumeric;
     document.getElementById('modalCloseBtn').onclick = () => closeAuthModal(false);
     
-    // Change password events
     document.querySelectorAll('.change-method-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             changeMode = btn.dataset.changeMethod;
@@ -1093,7 +1190,6 @@ async function initApp() {
     document.getElementById('cancelChangeBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
     document.getElementById('closeChangeModalBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
     
-    // Profile menu
     const profileBtn = document.getElementById('profileButton');
     const profileMenu = document.getElementById('profileMenu');
     profileBtn.addEventListener('click', (e) => {
@@ -1132,6 +1228,7 @@ async function initApp() {
     } else {
         document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
         document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
+        document.getElementById('adminSection').style.display = 'none';
         updateRequestSummary();
     }
     
