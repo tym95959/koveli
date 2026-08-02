@@ -150,6 +150,7 @@ async function loadDutyChangeRequests(filters = {}) {
             const data = doc.data();
             results.push({ id: doc.id, ...data });
         });
+        console.log('📄 Loaded', results.length, 'requests');
         return results;
     } catch(e) {
         console.warn('Load error:', e);
@@ -696,7 +697,7 @@ async function loadAllData() {
     allRequestsCache = allRequests;
     
     console.log('📊 Total requests loaded:', allRequestsCache.length);
-    console.log('👤 Logged in as:', currentLoggedInStaff.name, 'Role:', currentLoggedInStaff.role);
+    console.log('👤 Logged in as:', currentLoggedInStaff.name);
     
     updateRequestLimitDisplay();
     
@@ -716,8 +717,8 @@ function updateRequestLimitDisplay() {
     const periodLabel = currentHalf === 'first' ? '1-15' : '16-31';
     
     document.getElementById('requestLimitDisplay').style.display = 'block';
-    document.getElementById('firstHalfUsed').textContent = info.usedCount;
     document.getElementById('firstHalfLabel').textContent = `Month (${periodLabel})`;
+    document.getElementById('firstHalfUsed').textContent = info.usedCount;
     document.getElementById('pendingCount').textContent = info.pendingCount;
     document.getElementById('approvedCount').textContent = info.approvedCount;
     
@@ -920,9 +921,7 @@ window.cancelDutyRequest = async function(id) {
     }
 };
 
-// Accept Staff can Accept/Reject
 window.acceptSwapRequest = async function(id) {
-    // Verify the logged-in user is the accept staff
     const request = allRequestsCache.find(r => r.id === id);
     if (!request) {
         showTemporaryFeedback('❌ Request not found', true);
@@ -942,7 +941,6 @@ window.acceptSwapRequest = async function(id) {
 };
 
 window.rejectSwapRequest = async function(id) {
-    // Verify the logged-in user is the accept staff
     const request = allRequestsCache.find(r => r.id === id);
     if (!request) {
         showTemporaryFeedback('❌ Request not found', true);
