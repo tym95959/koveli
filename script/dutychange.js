@@ -242,7 +242,6 @@ function showLoadingPopup(title, subtitle) {
     const titleEl = document.getElementById('loadingTitle');
     const subtitleEl = document.getElementById('loadingSubtitle');
     
-    // Reset
     spinner.style.display = 'block';
     icon.style.display = 'none';
     icon.innerHTML = '';
@@ -275,13 +274,10 @@ function hideLoadingPopup() {
     document.getElementById('loadingPopup').classList.remove('active');
 }
 
-// ========== EMAIL FUNCTION WITH ERROR HANDLING ==========
-// CONFIGURE EMAIL RECIPIENTS HERE
+// ========== EMAIL FUNCTION ==========
 const EMAIL_RECIPIENTS = {
-    // Primary recipients
     admin: 'iirufan@gmail.com',
     supervisor: 'tym95959@gmail.com',
-    // Additional recipients (CC)
     ccList: [
         'inkl0509@gmail.com',
         'leelidutychange@gmail.com'
@@ -308,7 +304,6 @@ function getEmailRecipients() {
 
 async function sendSwapEmail(swapData) {
     try {
-        // Build email body
         const emailBody = `
 
                          DUTY CHANGE                              
@@ -347,10 +342,8 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
 
         `;
 
-        // Get all recipients
         const recipients = getEmailRecipients();
         
-        // Also add staff emails if they exist
         const requesterStaff = getStaffById(swapData.requesterId);
         const acceptStaff = getStaffById(swapData.acceptStaffId);
         
@@ -368,7 +361,6 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
 
         console.log('📧 Sending duty change email to:', recipients);
 
-        // Use koveli API endpoint
         const API_URL = 'https://koveli.vercel.app/api/send-email';
 
         const response = await fetch(API_URL, {
@@ -384,7 +376,6 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
             })
         });
 
-        // Try to parse response
         let result;
         try {
             result = await response.json();
@@ -401,12 +392,12 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
             return true;
         } else {
             console.warn('Email API returned error:', result);
-            return true; // Still return true so user gets success
+            return true;
         }
 
     } catch (error) {
         console.error('Email error:', error);
-        return true; // Always return true so the user gets success message
+        return true;
     }
 }
 
@@ -1220,6 +1211,56 @@ async function loadAdminRequests() {
     `).join('');
 }
 
+// ========== LOGOUT FUNCTION ==========
+function logoutUser() {
+    if (!currentLoggedInStaff) {
+        showTemporaryFeedback('⚠️ You are not logged in', true);
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to logout ${currentLoggedInStaff.name}?`)) {
+        return;
+    }
+    
+    // Clear all user data
+    currentLoggedInStaff = null;
+    allRequestsCache = [];
+    
+    // Reset UI
+    document.getElementById('currentUserDisplay').style.display = 'none';
+    document.getElementById('currentUserName').innerHTML = '—';
+    document.getElementById('profileShortName').innerHTML = 'Login';
+    document.getElementById('profileAvatar').innerHTML = '👤';
+    document.getElementById('profileMenu').classList.remove('show');
+    
+    // Reset login dropdown
+    const loginSelect = document.getElementById('loginStaffSelect');
+    if (loginSelect) loginSelect.value = '';
+    
+    // Clear form fields
+    document.getElementById('requestStaffName').value = '';
+    document.getElementById('requestStaffRcNo').value = '';
+    document.getElementById('submitDutyChangeBtn').disabled = true;
+    document.getElementById('requestLimitDisplay').style.display = 'none';
+    document.getElementById('requestLimitWarning').style.display = 'none';
+    
+    // Reset lists
+    document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
+    document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
+    document.getElementById('adminSection').style.display = 'none';
+    document.getElementById('requestSummary').innerHTML = '<p style="color: #b28b44;">Please login to see summary</p>';
+    
+    // Clear duty form
+    document.getElementById('dutyAcceptStaff').value = '';
+    document.getElementById('acceptStaffName').value = '';
+    document.getElementById('acceptStaffRcNo').value = '';
+    document.getElementById('acceptCurrentDuty').value = '';
+    document.getElementById('swapReason').value = '';
+    
+    showTemporaryFeedback('👋 Logged out successfully!');
+    console.log('👋 User logged out');
+}
+
 // ========== GLOBAL FUNCTIONS ==========
 window.cancelDutyRequest = async function(id) {
     if (!confirm('Cancel this swap request?')) return;
@@ -1488,6 +1529,12 @@ async function initApp() {
         }
         profileMenu.classList.remove('show');
     };
+    
+    // ========== LOGOUT EVENT ==========
+    document.getElementById('logoutAction').addEventListener('click', function(e) {
+        e.stopPropagation();
+        logoutUser();
+    });
     
     // Initial load
     if (currentLoggedInStaff) {
