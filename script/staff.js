@@ -23,7 +23,7 @@ export const staffList = [
   { id: "A-8009", name: "Mujahid", role: "officer", contact: "" , pass:"1234"},
   { id: "A-8038", name: "Magrib", role: "officer", contact: "" , pass:"1234"},
   { id: "A-8089", name: "Ruhushath", role: "officer", contact: "", pass:"1234" },
-  { id: "A-8156", name: "Jeezan", role: "Supervisor", contact: "", pass:"1234" },
+  { id: "A-8156", name: "Jeezan", role: "officer", contact: "", pass:"1234" },
   { id: "A-8551", name: "Liushadha", role: "officer", contact: "" , pass:"1234"},
   { id: "A-8610", name: "Rameez", role: "officer", contact: "" , pass:"1234"},
   { id: "A-8553", name: "Zalma", role: "officer", contact: "" , pass:"1234"},
