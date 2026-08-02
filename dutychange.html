@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <title>Duty Change Request</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f9e7b3 0%, #f5dc9c 100%);
+            font-family: system-ui, -apple-system, 'Segoe UI', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .app-card {
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            background: #fffcf0;
+            border-radius: 48px;
+            box-shadow: 0 25px 40px -12px rgba(120, 80, 20, 0.25);
+            overflow: hidden;
+            border: 1px solid #f3de9f;
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0e2be;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            color: #b87c1a;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .profile-btn-container {
+            position: relative;
+        }
+
+        .profile-icon-btn {
+            background: #fcf3e2;
+            border: 1px solid #e8d6a8;
+            border-radius: 60px;
+            padding: 8px 16px 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            font-weight: 500;
+            color: #7a5c1a;
+            font-size: 0.9rem;
+        }
+
+        .profile-icon-btn:hover {
+            background: #fbefd4;
+            border-color: #dbb866;
+            transform: scale(1.02);
+        }
+
+        .profile-avatar {
+            width: 28px;
+            height: 28px;
+            background: #e4bc78;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #5c3e0e;
+        }
+
+        .profile-name-short {
+            max-width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-menu {
+            position: absolute;
+            top: 58px;
+            right: 0;
+            background: #ffffffef;
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            min-width: 200px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+            border: 1px solid #f0e2be;
+            padding: 12px 0;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-6px);
+            transition: 0.18s ease;
+            z-index: 25;
+        }
+
+        .profile-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .profile-menu-item {
+            padding: 10px 18px;
+            font-size: 0.85rem;
+            color: #7a5c1a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .profile-menu-item:hover {
+            background: #faf0df;
+        }
+
+        .login-section {
+            background: #fffef7;
+            border-radius: 28px;
+            padding: 20px;
+            border: 1px solid #f3e5bd;
+            margin-bottom: 24px;
+        }
+
+        .field-group {
+            margin-bottom: 20px;
+        }
+
+        .field-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #7a5c1a;
+            margin-bottom: 12px;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            background-color: #fffcf0;
+            border: 1.5px solid #e8d6a8;
+            border-radius: 36px;
+            color: #5c4311;
+            cursor: pointer;
+            appearance: none;
+            transition: 0.2s;
+            font-family: inherit;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #e4bc78;
+            box-shadow: 0 0 0 3px rgba(228,188,120,0.3);
+        }
+
+        select {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="%23c9a03e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+            background-repeat: no-repeat;
+            background-position: right 20px center;
+            background-size: 20px;
+        }
+
+        .current-user-badge {
+            background: #e4bc78;
+            color: #5c3e0e;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .duty-card {
+            background: #fffef7;
+            border-radius: 28px;
+            padding: 20px;
+            border: 1px solid #f3e5bd;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(110,70,10,0.05);
+        }
+
+        .duty-card h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #b87c1a;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #f0e0bc;
+            padding-bottom: 10px;
+        }
+
+        .field-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            margin-bottom: 14px;
+            align-items: center;
+        }
+
+        .field-row label {
+            min-width: 130px;
+            font-weight: 600;
+            color: #7a5c1a;
+        }
+
+        .field-row input, .field-row select {
+            flex: 1;
+            min-width: 180px;
+            padding: 10px 16px;
+            border-radius: 36px;
+            border: 1.5px solid #e8d6a8;
+            background: white;
+            font-size: 0.95rem;
+        }
+
+        .field-row input:disabled {
+            background: #f3efe6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #2c6e2c;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 12px 28px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1e5a1e;
+            transform: scale(1.02);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e4bc78;
+            color: #5c3e0e;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .btn-secondary:hover {
+            background: #d4aa5a;
+            transform: scale(1.02);
+        }
+
+        .btn-danger {
+            background: #c25d2e;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .btn-danger:hover {
+            background: #a84a20;
+            transform: scale(1.02);
+        }
+
+        .request-item {
+            background: #fffcf5;
+            border: 1px solid #f0e2be;
+            border-radius: 20px;
+            padding: 14px 18px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.2s;
+            gap: 10px;
+        }
+
+        .request-item:hover {
+            background: #fff9ef;
+            border-color: #e4bc78;
+        }
+
+        .request-info {
+            font-size: 0.9rem;
+            color: #5c4311;
+            flex: 1;
+        }
+
+        .request-info strong {
+            color: #b87c1a;
+        }
+
+        .request-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .badge-pending {
+            background: #f8e9cf;
+            color: #b8860b;
+        }
+
+        .badge-approved {
+            background: #2c6e2c;
+            color: white;
+        }
+
+        .badge-rejected {
+            background: #c25d2e;
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #b28b44;
+            padding: 30px 10px;
+            font-size: 0.95rem;
+        }
+
+        .footer-note {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #b28b44;
+            border-top: 1px solid #f1e4c4;
+            padding-top: 16px;
+        }
+
+        .message-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c6e2c;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 3000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: opacity 0.3s;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .message-toast.error {
+            background: #c25d2e;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0.2s, opacity 0.2s;
+        }
+
+        .modal-overlay.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .modal-container {
+            background: #fffef5;
+            border-radius: 56px;
+            max-width: 500px;
+            width: 90%;
+            padding: 24px 20px 30px;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.3);
+            border: 1px solid #f5e2b0;
+            text-align: center;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .modal-header h3 {
+            color: #b87c1a;
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #c29a46;
+            padding: 0 8px;
+        }
+
+        .modal-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #f0e0bc;
+            padding-bottom: 8px;
+        }
+
+        .modal-tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 10px 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ba8b2c;
+            cursor: pointer;
+            border-radius: 40px;
+            transition: 0.2s;
+        }
+
+        .modal-tab-btn.active-tab {
+            background: #fbefd4;
+            color: #986b1a;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active-pane {
+            display: block;
+        }
+
+        .pattern-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            justify-items: center;
+            align-items: center;
+            margin: 20px auto;
+            width: 240px;
+        }
+
+        .dot {
+            width: 60px;
+            height: 60px;
+            background: #f9efdc;
+            border-radius: 50%;
+            border: 2px solid #e4bc78;
+            transition: 0.1s;
+            cursor: pointer;
+        }
+
+        .dot.temp-selected {
+            background: #c9a550;
+            border-color: #a87d2e;
+        }
+
+        .pattern-wrapper {
+            position: relative;
+            width: 240px;
+            margin: 0 auto;
+        }
+
+        .pattern-wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .numeric-display {
+            background: #fcf5e6;
+            border: 1px solid #eedbba;
+            border-radius: 48px;
+            padding: 16px 20px;
+            font-size: 1.8rem;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 4px;
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .key-btn {
+            background: #fcf3e2;
+            border: 1px solid #eedbbc;
+            border-radius: 50px;
+            padding: 16px 0;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #825e24;
+            cursor: pointer;
+        }
+
+        .key-btn:hover {
+            background: #f8e9cf;
+        }
+
+        .action-btn {
+            background: #f8e9cf;
+            border-radius: 50px;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .action-btn:hover {
+            background: #f0e0bc;
+        }
+
+        .pattern-status {
+            margin-top: 10px;
+            color: #a57334;
+            font-weight: 500;
+        }
+
+        .change-pass-tabs {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0 20px;
+            border-bottom: 1px solid #f0e0bc;
+            padding-bottom: 6px;
+        }
+
+        .change-method-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 8px 12px;
+            font-weight: 600;
+            color: #b8860b;
+            cursor: pointer;
+            border-radius: 40px;
+            transition: 0.2s;
+        }
+
+        .change-method-btn.active-method {
+            background: #fbefd4;
+            color: #7a5516;
+        }
+
+        .feedback-msg {
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 650px) {
+            .app-card {
+                padding: 15px;
+            }
+            .field-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .field-row label {
+                min-width: unset;
+            }
+            .field-row input, .field-row select {
+                min-width: unset;
+            }
+            .request-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .request-actions {
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-card">
+    <div class="header">
+        <h1>🔄 Duty Change</h1>
+        <div class="profile-btn-container">
+            <div class="profile-icon-btn" id="profileButton">
+                <span class="profile-avatar" id="profileAvatar">👤</span>
+                <span class="profile-name-short" id="profileShortName">Login</span>
+            </div>
+            <div class="profile-menu" id="profileMenu">
+                <div class="profile-menu-item" id="profileViewAction">📋 View Profile</div>
+                <div class="profile-menu-item" id="profileChangePass">🔑 Change Login Code</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Section -->
+    <div class="login-section">
+        <div class="field-group">
+            <label>👤 Select your name to login</label>
+            <select id="loginStaffSelect">
+                <option value="">-- Select Staff Member --</option>
+            </select>
+        </div>
+        <div id="currentUserDisplay" class="current-user-badge" style="display: none;">
+            ✅ Logged in as: <span id="currentUserName">—</span>
+        </div>
+    </div>
+
+    <!-- Duty Change Request Form -->
+    <div class="duty-card">
+        <h3>📝 Request Duty Change</h3>
+        <div id="dutyFormContainer">
+            <div class="field-row">
+                <label>📅 Duty Date</label>
+                <input type="date" id="dutyDate" value="">
+            </div>
+            <div class="field-row">
+                <label>⏰ Duty Shift</label>
+                <select id="dutyShift">
+                    <option value="Morning">🌅 Morning</option>
+                    <option value="Evening">🌙 Evening</option>
+                </select>
+            </div>
+            <div class="field-row">
+                <label>👤 Accept Staff</label>
+                <select id="dutyAcceptStaff">
+                    <option value="">-- Select --</option>
+                </select>
+            </div>
+            <div class="field-row">
+                <label>🆔 RC Number</label>
+                <input type="text" id="dutyRcNo" readonly placeholder="Auto from profile" style="background:#f3efe6;">
+            </div>
+            <button class="btn-primary" id="submitDutyChangeBtn" disabled>📤 Submit Request</button>
+        </div>
+    </div>
+
+    <!-- My Requests -->
+    <div class="duty-card">
+        <h3>📋 My Duty Change Requests</h3>
+        <div id="myDutyRequestsList">
+            <div class="empty-state">Login to see your requests</div>
+        </div>
+    </div>
+
+    <!-- Supervisor: All Requests -->
+    <div class="duty-card" id="supervisorSection" style="display: none;">
+        <h3>🛡️ All Requests (Supervisor)</h3>
+        <div id="allDutyRequestsList">
+            <div class="empty-state">No requests pending</div>
+        </div>
+    </div>
+
+    <div class="footer-note">🔄 Duty change requests require supervisor approval</div>
+</div>
+
+<!-- Password Modal -->
+<div id="passwordModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3 id="modalStaffName">Verify identity</h3>
+            <button class="modal-close" id="modalCloseBtn">&times;</button>
+        </div>
+        <div class="modal-tabs">
+            <button class="modal-tab-btn active-tab" data-modal-tab="pattern">🎨 Pattern</button>
+            <button class="modal-tab-btn" data-modal-tab="numeric">🔢 PIN</button>
+        </div>
+        <div id="patternTab" class="tab-pane active-pane">
+            <div class="pattern-wrapper">
+                <div class="pattern-grid" id="patternGrid"></div>
+                <canvas id="patternCanvas" width="260" height="260"></canvas>
+            </div>
+            <div class="pattern-status" id="patternStatus">✏️ Draw pattern</div>
+            <div class="pattern-actions">
+                <button id="resetPatternBtn" class="action-btn">⟳ Reset</button>
+            </div>
+        </div>
+        <div id="numericTab" class="tab-pane">
+            <div class="numeric-display" id="numericInput">●●●●</div>
+            <div class="keypad-grid" id="keypad"></div>
+            <div style="display: flex; gap: 12px;">
+                <button id="clearNumericBtn" class="action-btn">Clear</button>
+                <button id="deleteNumericBtn" class="action-btn">⌫</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div id="changePasswordModal" class="modal-overlay">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>🔐 Change Login Code</h3>
+            <button class="modal-close" id="closeChangeModalBtn">&times;</button>
+        </div>
+        <div class="change-pass-tabs">
+            <button class="change-method-btn active-method" data-change-method="pattern">🎨 Pattern</button>
+            <button class="change-method-btn" data-change-method="pin">🔢 PIN</button>
+        </div>
+        <div id="changePatternPane" class="tab-pane active-pane">
+            <div class="pattern-wrapper" style="margin:0 auto;">
+                <div class="pattern-grid" id="changePatternGrid"></div>
+                <canvas id="changePatternCanvas" width="260" height="260"></canvas>
+            </div>
+            <div class="pattern-status" id="changePatternStatus">📌 Draw new pattern</div>
+            <div class="pattern-actions">
+                <button id="resetChangePatternBtn" class="action-btn">⟳ Reset</button>
+            </div>
+        </div>
+        <div id="changePinPane" class="tab-pane">
+            <div class="numeric-display" id="changePinDisplay">●●●●●●</div>
+            <div class="keypad-grid" id="changePinKeypad"></div>
+            <div style="display: flex; gap: 12px;">
+                <button id="clearChangePinBtn" class="action-btn">Clear</button>
+                <button id="deleteChangePinBtn" class="action-btn">⌫</button>
+            </div>
+        </div>
+        <div class="confirm-buttons">
+            <button id="cancelChangeBtn" class="action-btn">Cancel</button>
+            <button id="saveNewCodeBtn" class="action-btn" style="background:#e4bc78;">💾 Save</button>
+        </div>
+        <div id="changeFeedback" class="feedback-msg"></div>
+    </div>
+</div>
+
+<!-- Toast Message -->
+<div id="messageToast" class="message-toast"></div>
+
+<script>
+    // ========== CONFIGURATION ==========
+    // Replace with your Firebase config
+    const FIREBASE_CONFIG = {
+        apiKey: "your-api-key",
+        authDomain: "your-auth-domain",
+        projectId: "your-project-id",
+        storageBucket: "your-storage-bucket",
+        messagingSenderId: "your-sender-id",
+        appId: "your-app-id"
+    };
+
+    // Staff List - add your staff members here with their credentials
+    const STAFF_LIST = [
+        { 
+            id: 'staff1', 
+            name: 'John Doe', 
+            role: 'Supervisor', 
+            contact: '12345678',
+            rcno: 'RC1001',
+            pass: '1234',           // PIN code (4-8 digits)
+            pattern: '123456789'    // Pattern (3-9 dots sequence)
+        },
+        { 
+            id: 'staff2', 
+            name: 'Jane Smith', 
+            role: 'Staff', 
+            contact: '87654321',
+            rcno: 'RC1002',
+            pass: '5678',
+            pattern: '147258369'
+        },
+        { 
+            id: 'staff3', 
+            name: 'Mike Johnson', 
+            role: 'Staff', 
+            contact: '11223344',
+            rcno: 'RC1003',
+            pass: '9012',
+            pattern: '12345678'
+        }
+    ];
+
+    // ========== FIREBASE INIT ==========
+    let firestore = null;
+
+    function initFirebase() {
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            firebase.initializeApp(FIREBASE_CONFIG);
+        }
+        if (firebase && firebase.firestore) {
+            firestore = firebase.firestore();
+            console.log('✅ Firebase connected');
+        }
+        return firestore;
+    }
+
+    // ========== STATE ==========
+    let currentUser = null;
+    let staffData = [];
+    let pendingAuthResolve = null;
+    let pendingAuth = { staff: null, callback: null };
+    let currentPatternSequence = [];
+    let currentNumericValue = '';
+    let isDrawing = false;
+    let dotElements = [];
+    let ctx = null;
+    let canvas = null;
+    
+    // Change password state
+    let changeMode = 'pattern';
+    let changePatternSeq = [];
+    let changePinValue = '';
+    let activeStaffForChange = null;
+
+    // ========== STAFF HELPERS ==========
+    function initStaffData() {
+        staffData = STAFF_LIST.map(staff => ({
+            id: staff.id,
+            name: staff.name,
+            role: staff.role || 'Staff',
+            contact: staff.contact || '',
+            rcno: staff.rcno || '',
+            pass: staff.pass || '',
+            pattern: staff.pattern || ''
+        }));
+        return staffData;
+    }
+
+    function getStaffById(id) {
+        return staffData.find(s => s.id === id);
+    }
+
+    function getStaffByName(name) {
+        return staffData.find(s => s.name === name);
+    }
+
+    // ========== FIREBASE CREDENTIALS ==========
+    async function loadStaffCredentials() {
+        if (!firestore) return false;
+        try {
+            const snapshot = await firestore.collection('staff').get();
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const staff = staffData.find(s => s.id === doc.id);
+                if (staff) {
+                    staff.pass = data.pass || staff.pass;
+                    staff.pattern = data.pattern || staff.pattern;
+                    staff.rcno = data.rcno || staff.rcno;
+                }
+            });
+            return true;
+        } catch(e) {
+            console.warn('Load credentials error:', e);
+            return false;
+        }
+    }
+
+    async function syncStaffToFirebase(staff) {
+        if (!firestore) return false;
+        try {
+            await firestore.collection('staff').doc(staff.id).set({
+                id: staff.id,
+                name: staff.name,
+                role: staff.role,
+                contact: staff.contact || '',
+                rcno: staff.rcno || '',
+                pass: staff.pass || '',
+                pattern: staff.pattern || '',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            return true;
+        } catch(e) {
+            console.warn('Sync error:', e);
+            return false;
+        }
+    }
+
+    // ========== DUTY CHANGE FIRESTORE ==========
+    async function saveDutyChangeRequest(request) {
+        if (!firestore) return false;
+        try {
+            const docId = `${request.requesterId}_${request.dutyDate}_${request.dutyShift}_${Date.now()}`;
+            await firestore.collection('dutyChanges').doc(docId).set({
+                ...request,
+                status: 'pending',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            return true;
+        } catch(e) {
+            console.error('Save error:', e);
+            return false;
+        }
+    }
+
+    async function loadDutyChangeRequests(filters = {}) {
+        if (!firestore) return [];
+        try {
+            let q = firestore.collection('dutyChanges');
+            if (filters.requesterId) q = q.where('requesterId', '==', filters.requesterId);
+            if (filters.status) q = q.where('status', '==', filters.status);
+            if (filters.dutyDate) q = q.where('dutyDate', '==', filters.dutyDate);
+            if (filters.dutyShift) q = q.where('dutyShift', '==', filters.dutyShift);
+            
+            const snap = await q.orderBy('createdAt', 'desc').get();
+            const results = [];
+            snap.forEach(doc => results.push({ id: doc.id, ...doc.data() }));
+            return results;
+        } catch(e) {
+            console.warn('Load error:', e);
+            return [];
+        }
+    }
+
+    async function updateDutyChangeStatus(requestId, status) {
+        if (!firestore) return false;
+        try {
+            await firestore.collection('dutyChanges').doc(requestId).update({
+                status: status,
+                reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                reviewedBy: currentUser?.name || 'Supervisor'
+            });
+            return true;
+        } catch(e) {
+            console.error('Update error:', e);
+            return false;
+        }
+    }
+
+    async function deleteDutyChange(requestId) {
+        if (!firestore) return false;
+        try {
+            await firestore.collection('dutyChanges').doc(requestId).delete();
+            return true;
+        } catch(e) {
+            console.error('Delete error:', e);
+            return false;
+        }
+    }
+
+    // ========== PATTERN LOCK ==========
+    function initPatternLock() {
+        const grid = document.getElementById('patternGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        dotElements = [];
+        
+        for (let i = 1; i <= 9; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            dot.dataset.value = i;
+            dot.addEventListener('mousedown', (e) => startPattern(e, i));
+            dot.addEventListener('touchstart', (e) => { e.preventDefault(); startPattern(e, i); });
+            grid.appendChild(dot);
+            dotElements.push(dot);
+        }
+        
+        canvas = document.getElementById('patternCanvas');
+        if (canvas) {
+            ctx = canvas.getContext('2d');
+            resizePatternCanvas();
+            window.addEventListener('resize', resizePatternCanvas);
+        }
+        
+        attachPatternEvents();
+    }
+
+    function resizePatternCanvas() {
+        if (!canvas) return;
+        const wrapper = canvas.parentElement;
+        if (!wrapper) return;
+        const rect = wrapper.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function startPattern(e, val) {
+        if (!pendingAuth.staff) return;
+        e.preventDefault();
+        isDrawing = true;
+        const idx = currentPatternSequence.indexOf(val);
+        if (idx === -1) {
+            currentPatternSequence.push(val);
+        } else {
+            currentPatternSequence = currentPatternSequence.slice(0, idx + 1);
+        }
+        updatePatternDots();
+    }
+
+    function onPatternMove(e) {
+        if (!isDrawing || !pendingAuth.staff) return;
+        const touch = e.touches ? e.touches[0] : e;
+        const elem = document.elementsFromPoint(touch.clientX, touch.clientY);
+        
+        for (let el of elem) {
+            if (el.classList?.contains('dot')) {
+                const val = parseInt(el.dataset.value);
+                if (val && currentPatternSequence[currentPatternSequence.length - 1] !== val) {
+                    if (!currentPatternSequence.includes(val)) {
+                        currentPatternSequence.push(val);
+                    } else {
+                        const idx = currentPatternSequence.indexOf(val);
+                        if (idx !== -1 && idx !== currentPatternSequence.length - 1) {
+                            currentPatternSequence = currentPatternSequence.slice(0, idx + 1);
+                        }
+                    }
+                    updatePatternDots();
+                }
+                break;
+            }
+        }
+    }
+
+    function endPattern() {
+        if (isDrawing) {
+            isDrawing = false;
+            dotElements.forEach(d => d.classList.remove('selected', 'temp-selected'));
+            if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (pendingAuth.staff && pendingAuthResolve && currentPatternSequence.length > 0) {
+                attemptAutoVerify('pattern');
+            } else {
+                resetPattern();
+            }
+        }
+    }
+
+    function attachPatternEvents() {
+        window.addEventListener('mouseup', endPattern);
+        window.addEventListener('touchend', endPattern);
+        window.addEventListener('mousemove', onPatternMove);
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); onPatternMove(e); });
+    }
+
+    function resetPattern() {
+        currentPatternSequence = [];
+        dotElements.forEach(d => d.classList.remove('selected', 'temp-selected'));
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const statusEl = document.getElementById('patternStatus');
+        if (statusEl) statusEl.innerText = "✏️ Draw pattern";
+    }
+
+    function updatePatternDots() {
+        dotElements.forEach((dot, index) => {
+            if (currentPatternSequence.includes(index + 1)) {
+                dot.classList.add('temp-selected');
+            } else {
+                dot.classList.remove('temp-selected');
+            }
+        });
+    }
+
+    function getPatternString() {
+        return currentPatternSequence.join('');
+    }
+
+    // ========== PIN KEYPAD ==========
+    function buildKeypad() {
+        const pad = document.getElementById('keypad');
+        if (!pad) return;
+        pad.innerHTML = '';
+        
+        for (let i = 1; i <= 9; i++) {
+            const btn = document.createElement('div');
+            btn.className = 'key-btn';
+            btn.innerText = i;
+            btn.addEventListener('click', () => appendNumeric(i.toString()));
+            pad.appendChild(btn);
+        }
+        
+        const zeroBtn = document.createElement('div');
+        zeroBtn.className = 'key-btn';
+        zeroBtn.innerText = '0';
+        zeroBtn.addEventListener('click', () => appendNumeric('0'));
+        pad.appendChild(zeroBtn);
+        
+        const dummy = document.createElement('div');
+        dummy.style.visibility = 'hidden';
+        pad.appendChild(dummy);
+    }
+
+    function appendNumeric(digit) {
+        if (!pendingAuth.staff) return;
+        if (currentNumericValue.length < 8) {
+            currentNumericValue += digit;
+        }
+        updateNumericDisplay();
+        
+        const storedPass = String(pendingAuth.staff.pass || '');
+        if (storedPass && currentNumericValue === storedPass && pendingAuthResolve) {
+            attemptAutoVerify('numeric');
+        }
+    }
+
+    function clearNumeric() {
+        currentNumericValue = '';
+        updateNumericDisplay();
+    }
+
+    function deleteNumeric() {
+        currentNumericValue = currentNumericValue.slice(0, -1);
+        updateNumericDisplay();
+    }
+
+    function updateNumericDisplay() {
+        const disp = document.getElementById('numericInput');
+        if (disp) {
+            disp.innerText = '●'.repeat(currentNumericValue.length) || '●●●●';
+        }
+    }
+
+    // ========== AUTH VERIFICATION ==========
+    async function attemptAutoVerify(source) {
+        if (!pendingAuth.staff || !pendingAuthResolve) return;
+        
+        const staff = pendingAuth.staff;
+        let isValid = false;
+        
+        if (source === 'pattern') {
+            isValid = getPatternString() === String(staff.pattern || '');
+        } else {
+            isValid = currentNumericValue === String(staff.pass || '');
+        }
+        
+        if (isValid) {
+            const resolve = pendingAuthResolve;
+            pendingAuthResolve = null;
+            closeAuthModal(true);
+            resolve({ success: true, staff: staff });
+            
+            if (pendingAuth.callback) {
+                pendingAuth.callback(staff);
+            }
+            pendingAuth.callback = null;
+        } else {
+            if (source === 'pattern') {
+                resetPattern();
+            } else {
+                clearNumeric();
+            }
+            const statusDiv = document.getElementById(source === 'pattern' ? 'patternStatus' : 'numericInput');
+            if (statusDiv) {
+                statusDiv.innerText = '❌ Wrong!';
+                statusDiv.style.color = '#c25d2e';
+                setTimeout(() => {
+                    if (source === 'pattern') {
+                        statusDiv.innerText = 'Draw pattern';
+                    } else {
+                        updateNumericDisplay();
+                    }
+                    statusDiv.style.color = '#a57334';
+                }, 1200);
+            }
+        }
+    }
+
+    // ========== AUTH MODAL ==========
+    function openPasswordModal(staff, callback) {
+        return new Promise((resolve) => {
+            pendingAuth = { staff, callback: callback };
+            pendingAuthResolve = resolve;
+            
+            const header = document.getElementById('modalStaffName');
+            if (header) header.innerHTML = `🔐 ${staff.name}`;
+            
+            resetPattern();
+            currentNumericValue = '';
+            updateNumericDisplay();
+            
+            const modal = document.getElementById('passwordModal');
+            if (modal) modal.classList.add('active');
+            
+            setTimeout(() => resizePatternCanvas(), 30);
+        });
+    }
+
+    function closeAuthModal(success = false) {
+        const modal = document.getElementById('passwordModal');
+        if (modal) modal.classList.remove('active');
+        
+        if (!success && pendingAuthResolve) {
+            const resolve = pendingAuthResolve;
+            pendingAuthResolve = null;
+            resolve({ success: false });
+        }
+        
+        resetPattern();
+        currentNumericValue = '';
+        updateNumericDisplay();
+    }
+
+    // ========== CHANGE PASSWORD ==========
+    function initChangePassword() {
+        const grid = document.getElementById('changePatternGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        const dotEls = [];
+        
+        for (let i = 1; i <= 9; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            dot.dataset.value = i;
+            dot.addEventListener('mousedown', (e) => startChangePattern(e, i, dotEls));
+            dot.addEventListener('touchstart', (e) => { e.preventDefault(); startChangePattern(e, i, dotEls); });
+            grid.appendChild(dot);
+            dotEls.push(dot);
+        }
+        
+        window._changeDotElements = dotEls;
+        window._changeCtx = document.getElementById('changePatternCanvas')?.getContext('2d');
+        window._changeCanvas = document.getElementById('changePatternCanvas');
+        
+        window.addEventListener('mouseup', () => endChangePattern(dotEls));
+        window.addEventListener('touchend', () => endChangePattern(dotEls));
+        window.addEventListener('mousemove', (e) => onChangePatternMove(e, dotEls));
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); onChangePatternMove(e, dotEls); });
+    }
+
+    function startChangePattern(e, val, dotEls) {
+        e.preventDefault();
+        const idx = changePatternSeq.indexOf(val);
+        if (idx === -1) {
+            changePatternSeq.push(val);
+        } else {
+            changePatternSeq = changePatternSeq.slice(0, idx + 1);
+        }
+        updateChangePatternDots(dotEls);
+        const status = document.getElementById('changePatternStatus');
+        if (status) status.innerHTML = `Pattern: ${'●'.repeat(changePatternSeq.length)} dots`;
+    }
+
+    function onChangePatternMove(e, dotEls) {
+        if (!window._isDrawingChange) return;
+        const touch = e.touches ? e.touches[0] : e;
+        const elem = document.elementsFromPoint(touch.clientX, touch.clientY);
+        
+        for (let el of elem) {
+            if (el.classList?.contains('dot')) {
+                const val = parseInt(el.dataset.value);
+                if (val && changePatternSeq[changePatternSeq.length - 1] !== val) {
+                    if (!changePatternSeq.includes(val)) {
+                        changePatternSeq.push(val);
+                    } else {
+                        const idx = changePatternSeq.indexOf(val);
+                        if (idx !== -1 && idx !== changePatternSeq.length - 1) {
+                            changePatternSeq = changePatternSeq.slice(0, idx + 1);
+                        }
+                    }
+                    updateChangePatternDots(dotEls);
+                    const status = document.getElementById('changePatternStatus');
+                    if (status) status.innerHTML = `Pattern: ${'●'.repeat(changePatternSeq.length)} dots`;
+                }
+                break;
+            }
+        }
+    }
+
+    function endChangePattern(dotEls) {
+        window._isDrawingChange = false;
+        dotEls.forEach(d => d.classList.remove('selected', 'temp-selected'));
+        if (window._changeCtx) window._changeCtx.clearRect(0, 0, window._changeCanvas.width, window._changeCanvas.height);
+    }
+
+    function updateChangePatternDots(dotEls) {
+        dotEls.forEach((dot, index) => {
+            if (changePatternSeq.includes(index + 1)) {
+                dot.classList.add('temp-selected');
+            } else {
+                dot.classList.remove('temp-selected');
+            }
+        });
+    }
+
+    function resetChangePattern() {
+        changePatternSeq = [];
+        if (window._changeDotElements) {
+            window._changeDotElements.forEach(d => d.classList.remove('selected', 'temp-selected'));
+        }
+        const status = document.getElementById('changePatternStatus');
+        if (status) status.innerHTML = '📌 Draw new pattern';
+    }
+
+    function buildChangePinKeypad() {
+        const pad = document.getElementById('changePinKeypad');
+        if (!pad) return;
+        pad.innerHTML = '';
+        
+        for (let i = 1; i <= 9; i++) {
+            const btn = document.createElement('div');
+            btn.className = 'key-btn';
+            btn.innerText = i;
+            btn.addEventListener('click', () => {
+                changePinValue += i.toString();
+                if (changePinValue.length > 8) changePinValue = changePinValue.slice(0, 8);
+                const disp = document.getElementById('changePinDisplay');
+                if (disp) disp.innerHTML = '●'.repeat(changePinValue.length) || '●●●●●●';
+            });
+            pad.appendChild(btn);
+        }
+        
+        const zero = document.createElement('div');
+        zero.className = 'key-btn';
+        zero.innerText = '0';
+        zero.addEventListener('click', () => {
+            changePinValue += '0';
+            if (changePinValue.length > 8) changePinValue = changePinValue.slice(0, 8);
+            const disp = document.getElementById('changePinDisplay');
+            if (disp) disp.innerHTML = '●'.repeat(changePinValue.length) || '●●●●●●';
+        });
+        pad.appendChild(zero);
+        
+        const dummy = document.createElement('div');
+        dummy.style.visibility = 'hidden';
+        pad.appendChild(dummy);
+    }
+
+    function openChangePasswordModal(staff) {
+        if (!staff) return;
+        activeStaffForChange = staff;
+        changePatternSeq = [];
+        changePinValue = '';
+        resetChangePattern();
+        const disp = document.getElementById('changePinDisplay');
+        if (disp) disp.innerHTML = '●●●●●●';
+        const feedback = document.getElementById('changeFeedback');
+        if (feedback) feedback.innerHTML = '';
+        document.getElementById('changePasswordModal').classList.add('active');
+    }
+
+    async function saveNewCode() {
+        if (!activeStaffForChange) return;
+        let newCode = changeMode === 'pattern' ? changePatternSeq.join('') : changePinValue;
+        
+        if (!newCode) {
+            document.getElementById('changeFeedback').innerHTML = '<span style="color:#c25d2e;">⚠️ Enter a code</span>';
+            return;
+        }
+        if (!/^\d+$/.test(newCode)) {
+            document.getElementById('changeFeedback').innerHTML = '<span style="color:#c25d2e;">❌ Only numbers</span>';
+            return;
+        }
+        if (changeMode === 'pattern' && newCode.length < 3) {
+            document.getElementById('changeFeedback').innerHTML = '<span style="color:#c25d2e;">⚠️ 3+ dots</span>';
+            return;
+        }
+        if (changeMode === 'pin' && newCode.length < 4) {
+            document.getElementById('changeFeedback').innerHTML = '<span style="color:#c25d2e;">⚠️ 4+ digits</span>';
+            return;
+        }
+        
+        document.getElementById('changeFeedback').innerHTML = '<span>💾 Saving...</span>';
+        
+        if (changeMode === 'pattern') {
+            activeStaffForChange.pattern = newCode;
+        } else {
+            activeStaffForChange.pass = newCode;
+        }
+        
+        const synced = await syncStaffToFirebase(activeStaffForChange);
+        if (synced) {
+            document.getElementById('changeFeedback').innerHTML = `<span style="color:#2c6e2c;">✅ Saved!</span>`;
+            setTimeout(() => {
+                document.getElementById('changePasswordModal').classList.remove('active');
+                showToast('Login code updated successfully!');
+            }, 1200);
+        } else {
+            document.getElementById('changeFeedback').innerHTML = '<span style="color:#e67e22;">⚠️ Save failed</span>';
+        }
+    }
+
+    // ========== TOAST ==========
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('messageToast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.className = 'message-toast' + (isError ? ' error' : '');
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 3000);
+    }
+
+    // ========== DUTY CHANGE UI ==========
+    function populateDutyForm(staff) {
+        const rcInput = document.getElementById('dutyRcNo');
+        if (rcInput) rcInput.value = staff.rcno || '';
+        
+        const dateInput = document.getElementById('dutyDate');
+        if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+        
+        const acceptSelect = document.getElementById('dutyAcceptStaff');
+        if (acceptSelect) {
+            const currentVal = acceptSelect.value;
+            acceptSelect.innerHTML = '<option value="">-- Select --</option>';
+            staffData.forEach(s => {
+                if (s.id !== staff.id) {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = `${s.name} (${s.rcno || ''})`;
+                    acceptSelect.appendChild(opt);
+                }
+            });
+            if (currentVal && acceptSelect.querySelector(`option[value="${currentVal}"]`)) {
+                acceptSelect.value = currentVal;
+            }
+        }
+        
+        document.getElementById('submitDutyChangeBtn').disabled = false;
+    }
+
+    async function submitDutyChange() {
+        if (!currentUser) {
+            showToast('⚠️ Please login first', true);
+            return;
+        }
+        
+        const date = document.getElementById('dutyDate').value;
+        const shift = document.getElementById('dutyShift').value;
+        const acceptId = document.getElementById('dutyAcceptStaff').value;
+        
+        if (!date) {
+            showToast('⚠️ Select duty date', true);
+            return;
+        }
+        if (!acceptId) {
+            showToast('⚠️ Select accepting staff', true);
+            return;
+        }
+        
+        const acceptStaff = getStaffById(acceptId);
+        if (!acceptStaff) {
+            showToast('⚠️ Invalid staff', true);
+            return;
+        }
+        if (acceptStaff.id === currentUser.id) {
+            showToast('⚠️ Cannot swap with yourself', true);
+            return;
+        }
+        
+        // Check if already has pending request for this date
+        const existing = await loadDutyChangeRequests({ 
+            requesterId: currentUser.id,
+            dutyDate: date,
+            dutyShift: shift
+        });
+        const hasPending = existing.some(r => r.status === 'pending');
+        if (hasPending) {
+            showToast('⚠️ You already have a pending request for this date/shift', true);
+            return;
+        }
+        
+        const request = {
+            requesterId: currentUser.id,
+            requesterName: currentUser.name,
+            requesterRcNo: currentUser.rcno || '',
+            dutyDate: date,
+            dutyShift: shift,
+            acceptStaffId: acceptStaff.id,
+            acceptStaffName: acceptStaff.name,
+            acceptStaffRcNo: acceptStaff.rcno || '',
+            status: 'pending'
+        };
+        
+        const ok = await saveDutyChangeRequest(request);
+        if (ok) {
+            showToast('✅ Duty change request submitted!');
+            document.getElementById('dutyAcceptStaff').value = '';
+            await loadMyDutyRequests();
+            await loadAllDutyRequests();
+        } else {
+            showToast('❌ Failed to submit request', true);
+        }
+    }
+
+    async function loadMyDutyRequests() {
+        const container = document.getElementById('myDutyRequestsList');
+        if (!currentUser) {
+            container.innerHTML = '<div class="empty-state">Login to see your requests</div>';
+            return;
+        }
+        
+        const requests = await loadDutyChangeRequests({ requesterId: currentUser.id });
+        if (requests.length === 0) {
+            container.innerHTML = '<div class="empty-state">No requests yet</div>';
+            return;
+        }
+        
+        container.innerHTML = requests.map(r => `
+            <div class="request-item">
+                <div class="request-info">
+                    <strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift} · 
+                    👤 ${r.acceptStaffName} (${r.acceptStaffRcNo || ''})
+                    <br><small>Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span></small>
+                </div>
+                ${r.status === 'pending' ? `
+                    <div class="request-actions">
+                        <button class="btn-danger" onclick="cancelDutyRequest('${r.id}')">❌ Cancel</button>
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
+    }
+
+    async function loadAllDutyRequests() {
+        const container = document.getElementById('allDutyRequestsList');
+        const section = document.getElementById('supervisorSection');
+        
+        if (!currentUser || currentUser.role !== 'Supervisor') {
+            section.style.display = 'none';
+            return;
+        }
+        
+        section.style.display = 'block';
+        const requests = await loadDutyChangeRequests({});
+        
+        if (requests.length === 0) {
+            container.innerHTML = '<div class="empty-state">No requests</div>';
+            return;
+        }
+        
+        // Sort: pending first
+        requests.sort((a, b) => {
+            if (a.status === 'pending' && b.status !== 'pending') return -1;
+            if (b.status === 'pending' && a.status !== 'pending') return 1;
+            return 0;
+        });
+        
+        container.innerHTML = requests.map(r => `
+            <div class="request-item">
+                <div class="request-info">
+                    <strong>${r.requesterName}</strong> (${r.requesterRcNo || ''}) → 
+                    <strong>${r.acceptStaffName}</strong> (${r.acceptStaffRcNo || ''})
+                    <br>📅 ${r.dutyDate} · ${r.dutyShift}
+                    <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
+                </div>
+                <div class="request-actions">
+                    ${r.status === 'pending' ? `
+                        <button class="btn-primary" style="padding:6px 16px;font-size:0.8rem;" onclick="approveDutyRequest('${r.id}')">✅ Approve</button>
+                        <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="rejectDutyRequest('${r.id}')">❌ Reject</button>
+                    ` : ''}
+                    <button class="btn-secondary" style="padding:4px 12px;font-size:0.7rem;background:#e5e7eb;" onclick="deleteDutyRequest('${r.id}')">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ========== GLOBAL FUNCTIONS (for inline onclick) ==========
+    window.cancelDutyRequest = async function(id) {
+        if (!confirm('Cancel this request?')) return;
+        const ok = await deleteDutyChange(id);
+        if (ok) {
+            showToast('Request cancelled');
+            await loadMyDutyRequests();
+            await loadAllDutyRequests();
+        }
+    };
+
+    window.approveDutyRequest = async function(id) {
+        const ok = await updateDutyChangeStatus(id, 'approved');
+        if (ok) {
+            showToast('✅ Request approved');
+            await loadAllDutyRequests();
+            await loadMyDutyRequests();
+        }
+    };
+
+    window.rejectDutyRequest = async function(id) {
+        const ok = await updateDutyChangeStatus(id, 'rejected');
+        if (ok) {
+            showToast('❌ Request rejected');
+            await loadAllDutyRequests();
+            await loadMyDutyRequests();
+        }
+    };
+
+    window.deleteDutyRequest = async function(id) {
+        if (!confirm('Delete this request?')) return;
+        const ok = await deleteDutyChange(id);
+        if (ok) {
+            showToast('Request deleted');
+            await loadAllDutyRequests();
+            await loadMyDutyRequests();
+        }
+    };
+
+    // ========== LOGIN HANDLER ==========
+    async function handleLogin(staffId) {
+        if (!staffId) return;
+        const staff = getStaffById(staffId);
+        if (!staff) {
+            showToast('Staff not found', true);
+            return;
+        }
+        
+        const result = await openPasswordModal(staff, (user) => {
+            // Callback after successful login
+            currentUser = user;
+            updateUIAfterLogin(user);
+        });
+        
+        if (result?.success) {
+            currentUser = result.staff;
+            updateUIAfterLogin(currentUser);
+        } else {
+            // Reset dropdown
+            const select = document.getElementById('loginStaffSelect');
+            if (select && currentUser) {
+                select.value = currentUser.id;
+            } else if (select) {
+                select.value = '';
+            }
+        }
+    }
+
+    function updateUIAfterLogin(user) {
+        // Update display
+        const badge = document.getElementById('currentUserDisplay');
+        const nameSpan = document.getElementById('currentUserName');
+        if (badge && nameSpan) {
+            badge.style.display = 'inline-block';
+            nameSpan.textContent = user.name;
+        }
+        
+        // Update profile
+        document.getElementById('profileShortName').textContent = user.name.split(' ')[0];
+        document.getElementById('profileAvatar').textContent = user.name.charAt(0).toUpperCase();
+        
+        // Update dropdown
+        const select = document.getElementById('loginStaffSelect');
+        if (select) select.value = user.id;
+        
+        // Populate duty form
+        populateDutyForm(user);
+        
+        // Load requests
+        loadMyDutyRequests();
+        loadAllDutyRequests();
+        
+        showToast(`✅ Welcome ${user.name}!`);
+    }
+
+    // ========== INIT ==========
+    async function initApp() {
+        // Initialize Firebase
+        initFirebase();
+        
+        // Initialize staff data
+        initStaffData();
+        
+        // Load credentials from Firebase
+        if (firestore) {
+            await loadStaffCredentials();
+        }
+        
+        // Populate login dropdown
+        const loginSelect = document.getElementById('loginStaffSelect');
+        loginSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
+        staffData.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = `${s.name} (${s.rcno || ''})`;
+            loginSelect.appendChild(opt);
+        });
+        
+        // Setup login event
+        loginSelect.addEventListener('change', (e) => {
+            handleLogin(e.target.value);
+        });
+        
+        // Setup pattern lock
+        initPatternLock();
+        
+        // Setup keypad
+        buildKeypad();
+        
+        // Setup change password
+        initChangePassword();
+        buildChangePinKeypad();
+        
+        // Setup modal events
+        document.getElementById('modalCloseBtn').addEventListener('click', () => closeAuthModal(false));
+        document.getElementById('resetPatternBtn').addEventListener('click', resetPattern);
+        document.getElementById('clearNumericBtn').addEventListener('click', clearNumeric);
+        document.getElementById('deleteNumericBtn').addEventListener('click', deleteNumeric);
+        
+        // Modal tab switching
+        document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.dataset.modalTab;
+                document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active-tab'));
+                btn.classList.add('active-tab');
+                document.getElementById('patternTab').classList.toggle('active-pane', tabId === 'pattern');
+                document.getElementById('numericTab').classList.toggle('active-pane', tabId === 'numeric');
+                if (tabId === 'pattern') setTimeout(() => resizePatternCanvas(), 30);
+            });
+        });
+        
+        // Change password modal
+        document.getElementById('closeChangeModalBtn').addEventListener('click', () => {
+            document.getElementById('changePasswordModal').classList.remove('active');
+        });
+        document.getElementById('cancelChangeBtn').addEventListener('click', () => {
+            document.getElementById('changePasswordModal').classList.remove('active');
+        });
+        document.getElementById('resetChangePatternBtn').addEventListener('click', resetChangePattern);
+        document.getElementById('clearChangePinBtn').addEventListener('click', () => {
+            changePinValue = '';
+            document.getElementById('changePinDisplay').innerHTML = '●●●●●●';
+        });
+        document.getElementById('deleteChangePinBtn').addEventListener('click', () => {
+            changePinValue = changePinValue.slice(0, -1);
+            document.getElementById('changePinDisplay').innerHTML = '●'.repeat(changePinValue.length) || '●●●●●●';
+        });
+        document.getElementById('saveNewCodeBtn').addEventListener('click', saveNewCode);
+        
+        // Change method tabs
+        document.querySelectorAll('.change-method-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                changeMode = btn.dataset.changeMethod;
+                document.querySelectorAll('.change-method-btn').forEach(b => b.classList.remove('active-method'));
+                btn.classList.add('active-method');
+                document.getElementById('changePatternPane').classList.toggle('active-pane', changeMode === 'pattern');
+                document.getElementById('changePinPane').classList.toggle('active-pane', changeMode === 'pin');
+                if (changeMode === 'pattern') {
+                    setTimeout(() => {
+                        const canvas = document.getElementById('changePatternCanvas');
+                        if (canvas) {
+                            const rect = canvas.parentElement?.getBoundingClientRect();
+                            if (rect) { canvas.width = rect.width; canvas.height = rect.height; }
+                        }
+                    }, 30);
+                }
+            });
+        });
+        
+        // Profile menu
+        document.getElementById('profileButton').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('profileMenu').classList.toggle('show');
+        });
+        document.addEventListener('click', () => {
+            document.getElementById('profileMenu').classList.remove('show');
+        });
+        
+        document.getElementById('profileViewAction').onclick = () => {
+            if (currentUser) {
+                alert(`👤 ${currentUser.name}\nRole: ${currentUser.role}\nRC No: ${currentUser.rcno || 'N/A'}\nContact: ${currentUser.contact || 'N/A'}`);
+            } else {
+                showToast('Please login first', true);
+            }
+            document.getElementById('profileMenu').classList.remove('show');
+        };
+        
+        document.getElementById('profileChangePass').onclick = () => {
+            if (currentUser) {
+                openChangePasswordModal(currentUser);
+            } else {
+                showToast('Please login first', true);
+            }
+            document.getElementById('profileMenu').classList.remove('show');
+        };
+        
+        // Submit duty change
+        document.getElementById('submitDutyChangeBtn').addEventListener('click', submitDutyChange);
+        
+        // Set default date
+        const dateInput = document.getElementById('dutyDate');
+        if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+        
+        // Load requests if already logged in (from previous session, but we don't have session persistence)
+        // So just show empty state
+        loadMyDutyRequests();
+        loadAllDutyRequests();
+        
+        console.log('✅ Duty Change App initialized');
+    }
+
+    // Start the app
+    document.addEventListener('DOMContentLoaded', initApp);
+</script>
+
+</body>
+</html>
