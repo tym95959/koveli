@@ -13,7 +13,7 @@ body {
 }
 
 .app-card {
-    max-width: 800px;
+    max-width: 900px;
     width: 100%;
     margin: 0 auto;
     background: #fffcf0;
@@ -207,6 +207,11 @@ select {
     background-size: 20px;
 }
 
+input[readonly] {
+    background: #f3efe6 !important;
+    cursor: not-allowed;
+}
+
 .current-user-badge {
     background: #e4bc78;
     color: #5c3e0e;
@@ -236,18 +241,24 @@ select {
     padding-bottom: 10px;
 }
 
+.duty-card h4 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
 .field-row {
     display: flex;
     flex-wrap: wrap;
     gap: 12px 20px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     align-items: center;
 }
 
 .field-row label {
-    min-width: 130px;
+    min-width: 120px;
     font-weight: 600;
     color: #7a5c1a;
+    font-size: 0.9rem;
 }
 
 .field-row input, .field-row select {
@@ -412,6 +423,7 @@ select {
     transition: opacity 0.3s;
     opacity: 0;
     pointer-events: none;
+    text-align: center;
 }
 
 .message-toast.error {
