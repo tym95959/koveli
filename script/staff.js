@@ -35,6 +35,7 @@ export const staffList = [
   { id: "A-11005", name: "Hammaz", role: "officer", contact: "" , pass:"1234"},
   { id: "A-11042", name: "Ashfan", role: "officer", contact: "" , pass:"1234"},
   { id: "A-11045", name: "Humaid", role: "officer", contact: "" , pass:"1234"},
+  { id: "979", name: "Irufan", role: "admin", contact: "", pass:"1234"},
   
   
   { id: "T-0033", name: "Nasrulla", role: "hk", contact: "9795939" },
