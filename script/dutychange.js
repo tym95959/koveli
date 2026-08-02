@@ -1,3 +1,5 @@
+import { staffList } from './staff.js';
+
 // ========== FIREBASE ==========
 let db = null;
 let firebaseConnected = false;
@@ -10,6 +12,22 @@ let staffLoaded = false;
 let isStaffLoading = false;
 let searchTimeout = null;
 let isDropdownOpen = false;
+
+// ========== FIREBASE INITIALIZATION ==========
+function initFirebase() {
+    if (typeof firebase !== 'undefined' && firebase.firestore) {
+        try {
+            db = firebase.firestore();
+            firebaseConnected = true;
+            console.log("✅ Firebase connected");
+            return true;
+        } catch (error) { 
+            console.error("Firestore error:", error);
+            return false;
+        }
+    }
+    return false;
+}
 
 // ========== PERSISTENT LOGIN ==========
 const STORAGE_KEY = 'dutyChangeLoggedInStaff';
@@ -49,34 +67,32 @@ async function loadStaffFromFirebase(searchTerm = '') {
         console.warn('Firebase not connected');
         return [];
     }
-    
+
     if (isStaffLoading) {
         console.log('⏳ Staff already loading...');
         return [];
     }
-    
-    // If search term is less than 2 chars, clear results
+
     if (searchTerm.length < 2) {
         staffData = [];
         staffLoaded = false;
         return [];
     }
-    
+
     isStaffLoading = true;
-    
+
     try {
         const term = searchTerm.toLowerCase().trim();
         console.log(`🔍 Searching for: "${term}"`);
-        
-        // Get all staff and filter locally
+
         const snapshot = await db.collection('staff').get();
-        
+
         if (snapshot.empty) {
             console.log('📭 No staff found in Firebase');
             isStaffLoading = false;
             return [];
         }
-        
+
         const allStaff = [];
         snapshot.forEach(doc => {
             const data = doc.data();
@@ -91,19 +107,18 @@ async function loadStaffFromFirebase(searchTerm = '') {
                 email: data.email || ''
             });
         });
-        
-        // Filter by search term (name or RC)
-        const filtered = allStaff.filter(s => 
-            s.name.toLowerCase().includes(term) || 
+
+        const filtered = allStaff.filter(s =>
+            s.name.toLowerCase().includes(term) ||
             s.rcno.toString().includes(term)
         );
-        
+
         staffData = filtered;
         staffLoaded = true;
         console.log(`📋 Found ${staffData.length} staff matching "${term}"`);
         return staffData;
-        
-    } catch(e) {
+
+    } catch (e) {
         console.error('❌ Error loading staff:', e);
         return [];
     } finally {
@@ -114,7 +129,7 @@ async function loadStaffFromFirebase(searchTerm = '') {
 // ========== LOAD ALL STAFF (for already logged in user) ==========
 async function loadStaffForLoggedInUser() {
     if (!db || !firebaseConnected) return false;
-    
+
     try {
         const snapshot = await db.collection('staff').get();
         const allStaff = [];
@@ -135,14 +150,14 @@ async function loadStaffForLoggedInUser() {
         staffLoaded = true;
         console.log(`📋 Loaded ${staffData.length} staff for logged in user`);
         return true;
-    } catch(e) {
+    } catch (e) {
         console.error('❌ Error loading staff:', e);
         return false;
     }
 }
 
-function getStaffById(id) { 
-    return staffData.find(s => s.id === id); 
+function getStaffById(id) {
+    return staffData.find(s => s.id === id);
 }
 
 function getStaffEmail(staffId) {
@@ -164,17 +179,17 @@ async function loadSpecificStaffCredentials(staffId) {
         if (doc.exists) {
             const data = doc.data();
             const staff = staffData.find(s => s.id === staffId);
-            if (staff) { 
-                staff.pass = data.pass || ''; 
+            if (staff) {
+                staff.pass = data.pass || '';
                 staff.pattern = data.pattern || '';
                 staff.email = data.email || staff.email || '';
             }
             return true;
         }
         return false;
-    } catch(e) { 
+    } catch (e) {
         console.warn('Load staff credentials error:', e);
-        return false; 
+        return false;
     }
 }
 
@@ -193,9 +208,9 @@ async function syncStaffToFirebase(staff) {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
         return true;
-    } catch(e) { 
+    } catch (e) {
         console.warn('Sync error:', e);
-        return false; 
+        return false;
     }
 }
 
@@ -246,7 +261,7 @@ async function saveDutyChangeRequest(request) {
         });
         console.log('✅ Request saved:', request);
         return true;
-    } catch(e) {
+    } catch (e) {
         console.error('Save error:', e);
         return false;
     }
@@ -260,7 +275,7 @@ async function loadDutyChangeRequests(filters = {}) {
         if (filters.acceptStaffId) q = q.where('acceptStaffId', '==', filters.acceptStaffId);
         if (filters.status) q = q.where('status', '==', filters.status);
         if (filters.swapDate) q = q.where('swapDate', '==', filters.swapDate);
-        
+
         const snap = await q.get();
         const results = [];
         snap.forEach(doc => {
@@ -269,7 +284,7 @@ async function loadDutyChangeRequests(filters = {}) {
         });
         console.log('📄 Loaded', results.length, 'requests');
         return results;
-    } catch(e) {
+    } catch (e) {
         console.warn('Load error:', e);
         return [];
     }
@@ -285,7 +300,7 @@ async function updateDutyChangeStatus(requestId, status) {
         });
         console.log('✅ Status updated to:', status);
         return true;
-    } catch(e) {
+    } catch (e) {
         console.error('Update error:', e);
         return false;
     }
@@ -296,7 +311,7 @@ async function deleteDutyChange(requestId) {
     try {
         await db.collection('dutyChanges').doc(requestId).delete();
         return true;
-    } catch(e) {
+    } catch (e) {
         console.error('Delete error:', e);
         return false;
     }
@@ -305,23 +320,23 @@ async function deleteDutyChange(requestId) {
 // ========== ADMIN FUNCTIONS ==========
 async function deleteAllDutyChanges() {
     if (!db || !firebaseConnected) return false;
-    
+
     if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Admin') {
         showTemporaryFeedback('❌ Only Admins can delete all requests', true);
         return false;
     }
-    
+
     if (!confirm('⚠️ Are you sure you want to delete ALL duty change requests? This action cannot be undone!')) {
         return false;
     }
-    
+
     try {
         const snapshot = await db.collection('dutyChanges').get();
         if (snapshot.empty) {
             showTemporaryFeedback('ℹ️ No requests to delete');
             return false;
         }
-        
+
         const batch = db.batch();
         snapshot.forEach(doc => {
             batch.delete(doc.ref);
@@ -330,7 +345,7 @@ async function deleteAllDutyChanges() {
         showTemporaryFeedback('✅ All duty change requests deleted successfully!');
         await loadAllData();
         return true;
-    } catch(e) {
+    } catch (e) {
         console.error('Delete all error:', e);
         showTemporaryFeedback('❌ Failed to delete all requests', true);
         return false;
@@ -344,14 +359,14 @@ function showLoadingPopup(title, subtitle) {
     const icon = document.getElementById('loadingIcon');
     const titleEl = document.getElementById('loadingTitle');
     const subtitleEl = document.getElementById('loadingSubtitle');
-    
+
     spinner.style.display = 'block';
     icon.style.display = 'none';
     icon.innerHTML = '';
-    
+
     titleEl.textContent = title || 'Processing...';
     subtitleEl.textContent = subtitle || 'Please wait';
-    
+
     popup.classList.add('active');
 }
 
@@ -361,14 +376,14 @@ function showSuccessPopup(title, subtitle) {
     const icon = document.getElementById('loadingIcon');
     const titleEl = document.getElementById('loadingTitle');
     const subtitleEl = document.getElementById('loadingSubtitle');
-    
+
     spinner.style.display = 'none';
     icon.style.display = 'block';
     icon.innerHTML = '✅';
     icon.style.fontSize = '4rem';
     icon.style.marginBottom = '15px';
     icon.style.animation = 'popIn 0.5s ease';
-    
+
     titleEl.textContent = title || 'Success!';
     subtitleEl.textContent = subtitle || 'Operation completed successfully';
 }
@@ -389,19 +404,19 @@ const EMAIL_RECIPIENTS = {
 
 function getEmailRecipients() {
     const recipients = [];
-    
+
     if (EMAIL_RECIPIENTS.admin) {
         recipients.push(EMAIL_RECIPIENTS.admin);
     }
-    
+
     if (EMAIL_RECIPIENTS.supervisor) {
         recipients.push(EMAIL_RECIPIENTS.supervisor);
     }
-    
+
     if (EMAIL_RECIPIENTS.ccList && EMAIL_RECIPIENTS.ccList.length > 0) {
         recipients.push(...EMAIL_RECIPIENTS.ccList);
     }
-    
+
     return recipients;
 }
 
@@ -446,10 +461,10 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
         `;
 
         const recipients = getEmailRecipients();
-        
+
         const requesterStaff = getStaffById(swapData.requesterId);
         const acceptStaff = getStaffById(swapData.acceptStaffId);
-        
+
         if (requesterStaff?.email && !recipients.includes(requesterStaff.email)) {
             recipients.push(requesterStaff.email);
         }
@@ -507,45 +522,45 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
 // ========== REQUEST VALIDATION FUNCTIONS ==========
 function canRequestSwap(staffId, requestDuty, swapDate, acceptStaffId, allRequests) {
     const errors = [];
-    
+
     const isOffDutySwap = isOffDuty(requestDuty);
     const staffRequests = allRequests.filter(r => r.requesterId === staffId);
-    
-    const existingDateRequest = staffRequests.find(r => 
-        r.swapDate === swapDate && 
+
+    const existingDateRequest = staffRequests.find(r =>
+        r.swapDate === swapDate &&
         (r.status === 'pending' || r.status === 'approved')
     );
     if (existingDateRequest) {
         errors.push('You already have a pending/approved swap request for this date');
     }
-    
-    const existingDutyChange = staffRequests.find(r => 
-        r.requesterDuty === requestDuty && 
+
+    const existingDutyChange = staffRequests.find(r =>
+        r.requesterDuty === requestDuty &&
         (r.status === 'pending' || r.status === 'approved')
     );
     if (existingDutyChange) {
         errors.push('You have already requested to change this duty');
     }
-    
+
     if (!isOffDutySwap) {
         const currentHalf = getMonthHalf(swapDate);
-        const halfRequests = staffRequests.filter(r => 
-            getMonthHalf(r.swapDate) === currentHalf && 
+        const halfRequests = staffRequests.filter(r =>
+            getMonthHalf(r.swapDate) === currentHalf &&
             !isOffDuty(r.requesterDuty) &&
             (r.status === 'pending' || r.status === 'approved')
         );
-        
+
         if (halfRequests.length >= 2) {
             errors.push(`You have already used 2 duty changes for ${currentHalf === 'first' ? '1-15' : '16-31'} of this month`);
         }
     }
-    
+
     const requester = getStaffById(staffId);
     const acceptStaff = getStaffById(acceptStaffId);
     if (requester && acceptStaff && requester.role !== acceptStaff.role) {
         errors.push(`You can only swap with staff of the same role (${requester.role} with ${requester.role})`);
     }
-    
+
     return {
         canRequest: errors.length === 0,
         errors: errors
@@ -556,21 +571,21 @@ function canRequestSwap(staffId, requestDuty, swapDate, acceptStaffId, allReques
 function getRequestLimitInfo(staffId, allRequests) {
     const staffRequests = allRequests.filter(r => r.requesterId === staffId);
     const currentHalf = getCurrentMonthHalf();
-    
-    const halfRequests = staffRequests.filter(r => 
-        getMonthHalf(r.swapDate) === currentHalf && 
+
+    const halfRequests = staffRequests.filter(r =>
+        getMonthHalf(r.swapDate) === currentHalf &&
         !isOffDuty(r.requesterDuty) &&
         (r.status === 'pending' || r.status === 'approved')
     );
-    
+
     let pendingCount = 0;
     let approvedCount = 0;
-    
+
     staffRequests.forEach(r => {
         if (r.status === 'approved') approvedCount++;
         else if (r.status === 'pending') pendingCount++;
     });
-    
+
     return {
         usedCount: halfRequests.length,
         pendingCount,
@@ -642,7 +657,7 @@ function onPatternMove(e) {
                 if (!currentPatternSequence.includes(val)) currentPatternSequence.push(val);
                 else {
                     const idx = currentPatternSequence.indexOf(val);
-                    if (idx !== -1 && idx !== currentPatternSequence.length - 1) 
+                    if (idx !== -1 && idx !== currentPatternSequence.length - 1)
                         currentPatternSequence = currentPatternSequence.slice(0, idx + 1);
                 }
                 dotElements.forEach((dot, index) => {
@@ -713,7 +728,7 @@ function appendNumeric(digit) {
     if (currentNumericValue.length < 8) currentNumericValue += digit;
     updateNumericDisplay();
     const storedPass = String(pendingAuth.staff.pass || '');
-    if (storedPass && currentNumericValue === storedPass && pendingAuthResolve) 
+    if (storedPass && currentNumericValue === storedPass && pendingAuthResolve)
         attemptAutoVerify('numeric');
 }
 
@@ -735,26 +750,26 @@ function updateNumericDisplay() {
 async function attemptAutoVerify(source) {
     if (!pendingAuth.staff || !pendingAuthResolve) return;
     const staff = pendingAuth.staff;
-    let isValid = source === 'pattern' ? 
-        getPatternString() === String(staff.pattern || '') : 
+    let isValid = source === 'pattern' ?
+        getPatternString() === String(staff.pattern || '') :
         currentNumericValue === String(staff.pass || '');
-    
+
     if (isValid) {
         const resolve = pendingAuthResolve;
         pendingAuthResolve = null;
         closeAuthModal(true);
         resolve({ success: true, staff: staff });
-        
+
         currentLoggedInStaff = staff;
         document.getElementById('currentUserDisplay').style.display = 'inline-block';
         document.getElementById('currentUserName').innerHTML = `${staff.name} (RC: ${staff.rcno})`;
         document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
         document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
-        
+
         saveLoggedInStaff(staff);
         populateDutyForm(staff);
         await loadAllData();
-        
+
         showTemporaryFeedback(`✅ Welcome ${staff.name}!`);
     } else {
         if (source === 'pattern') { resetPattern(); } else { clearNumeric(); }
@@ -864,7 +879,7 @@ function onChangePatternMove(e) {
                 if (!changePatternSeq.includes(val)) changePatternSeq.push(val);
                 else {
                     const idx = changePatternSeq.indexOf(val);
-                    if (idx !== -1 && idx !== changePatternSeq.length - 1) 
+                    if (idx !== -1 && idx !== changePatternSeq.length - 1)
                         changePatternSeq = changePatternSeq.slice(0, idx + 1);
                 }
                 changeDotElements.forEach((dot, index) => {
@@ -945,11 +960,11 @@ async function saveNewCode() {
         document.getElementById('changeFeedback').innerHTML = '<span style="color:#c25d2e;">⚠️ 4+ digits</span>';
         return;
     }
-    
+
     document.getElementById('changeFeedback').innerHTML = '<span>💾 Saving...</span>';
     if (changeMode === 'pattern') activeStaffForChange.pattern = newCode;
     else activeStaffForChange.pass = newCode;
-    
+
     const synced = await syncStaffToFirebase(activeStaffForChange);
     if (synced) {
         document.getElementById('changeFeedback').innerHTML = `<span style="color:#2c6e2c;">✅ Saved!</span>`;
@@ -984,7 +999,7 @@ function setupSearchableDropdown() {
     // Handle input search
     searchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
-        
+
         if (searchTimeout) {
             clearTimeout(searchTimeout);
         }
@@ -997,10 +1012,10 @@ function setupSearchableDropdown() {
 
         // Show loading state
         dropdownList.innerHTML = `
-            <div class="loading-results">
-                <span class="spinner-small"></span> Searching...
-            </div>
-        `;
+                <div class="loading-results">
+                    <span class="spinner-small"></span> Searching...
+                </div>
+            `;
         dropdownList.classList.add('show');
         isDropdownOpen = true;
 
@@ -1026,7 +1041,7 @@ function setupSearchableDropdown() {
             e.preventDefault();
             const items = dropdownList.querySelectorAll('.dropdown-item');
             if (items.length === 0) return;
-            
+
             let currentIndex = -1;
             items.forEach((item, index) => {
                 if (item.classList.contains('active')) {
@@ -1034,11 +1049,11 @@ function setupSearchableDropdown() {
                     item.classList.remove('active');
                 }
             });
-            
-            let newIndex = e.key === 'ArrowDown' ? 
-                (currentIndex + 1) % items.length : 
+
+            let newIndex = e.key === 'ArrowDown' ?
+                (currentIndex + 1) % items.length :
                 (currentIndex - 1 + items.length) % items.length;
-            
+
             items[newIndex].classList.add('active');
             items[newIndex].scrollIntoView({ block: 'nearest' });
         }
@@ -1050,43 +1065,43 @@ function setupSearchableDropdown() {
 
         if (isStaffLoading) {
             dropdownList.innerHTML = `
-                <div class="loading-results">
-                    <span class="spinner-small"></span> Searching...
-                </div>
-            `;
+                    <div class="loading-results">
+                        <span class="spinner-small"></span> Searching...
+                    </div>
+                `;
             return;
         }
 
         if (results.length === 0) {
             dropdownList.innerHTML = `
-                <div class="no-results">No staff found matching "<strong>${searchTerm}</strong>"</div>
-            `;
+                    <div class="no-results">No staff found matching "<strong>${searchTerm}</strong>"</div>
+                `;
             return;
         }
 
         const term = searchTerm.toLowerCase().trim();
         let html = '';
-        
+
         results.forEach(staff => {
             const nameMatch = staff.name.toLowerCase().includes(term);
             const rcMatch = staff.rcno.toString().includes(term);
-            
+
             let displayName = staff.name;
             if (nameMatch) {
                 const index = staff.name.toLowerCase().indexOf(term);
-                displayName = staff.name.substring(0, index) + 
-                    `<span class="highlight">${staff.name.substring(index, index + term.length)}</span>` + 
+                displayName = staff.name.substring(0, index) +
+                    `<span class="highlight">${staff.name.substring(index, index + term.length)}</span>` +
                     staff.name.substring(index + term.length);
             }
-            
+
             html += `
-                <div class="dropdown-item" data-id="${staff.id}" data-name="${staff.name}" data-rc="${staff.rcno}" data-role="${staff.role}">
-                    ${displayName}
-                    <span class="rcno-hint">(RC: ${staff.rcno})</span>
-                    <span class="role-badge">${staff.role}</span>
-                    ${rcMatch ? ' 🔍' : ''}
-                </div>
-            `;
+                    <div class="dropdown-item" data-id="${staff.id}" data-name="${staff.name}" data-rc="${staff.rcno}" data-role="${staff.role}">
+                        ${displayName}
+                        <span class="rcno-hint">(RC: ${staff.rcno})</span>
+                        <span class="role-badge">${staff.role}</span>
+                        ${rcMatch ? ' 🔍' : ''}
+                    </div>
+                `;
         });
 
         dropdownList.innerHTML = html;
@@ -1098,13 +1113,13 @@ function setupSearchableDropdown() {
                 const name = item.dataset.name;
                 const rc = item.dataset.rc;
                 const role = item.dataset.role;
-                
+
                 selectStaff(id, name, rc, role);
                 dropdownList.classList.remove('show');
                 isDropdownOpen = false;
                 searchInput.value = name;
             });
-            
+
             // Hover effect
             item.addEventListener('mouseenter', () => {
                 dropdownList.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
@@ -1119,7 +1134,7 @@ function setupSearchableDropdown() {
         selectedName.textContent = name;
         selectedRc.textContent = `RC: ${rc} | ${role}`;
         selectedDisplay.style.display = 'block';
-        
+
         // Trigger login
         const event = new Event('change');
         hiddenSelect.dispatchEvent(event);
@@ -1133,7 +1148,7 @@ function setupSearchableDropdown() {
             searchInput.value = '';
             dropdownList.classList.remove('show');
             isDropdownOpen = false;
-            
+
             if (currentLoggedInStaff) {
                 logoutUser();
             }
@@ -1147,7 +1162,6 @@ function setupSearchableDropdown() {
             isDropdownOpen = true;
             renderDropdownResults(staffData, searchInput.value);
         } else if (searchInput.value.length >= 2) {
-            // Trigger search
             const term = searchInput.value;
             loadStaffFromFirebase(term).then(results => {
                 renderDropdownResults(results, term);
@@ -1168,10 +1182,10 @@ function setupSearchableDropdown() {
 function populateDutyForm(staff) {
     document.getElementById('requestStaffName').value = staff.name;
     document.getElementById('requestStaffRcNo').value = staff.rcno || '';
-    
+
     const dateInput = document.getElementById('swapDate');
     if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
-    
+
     updateAcceptStaffDropdown();
     document.getElementById('submitDutyChangeBtn').disabled = false;
     updateRequestSummary();
@@ -1180,22 +1194,22 @@ function populateDutyForm(staff) {
 function updateAcceptStaffDropdown() {
     const acceptSelect = document.getElementById('dutyAcceptStaff');
     if (!acceptSelect || !currentLoggedInStaff) return;
-    
+
     const currentVal = acceptSelect.value;
     acceptSelect.innerHTML = '<option value="">-- Select Accepting Staff --</option>';
-    
-    const sameRoleStaff = staffData.filter(s => 
-        s.role === currentLoggedInStaff.role && 
+
+    const sameRoleStaff = staffData.filter(s =>
+        s.role === currentLoggedInStaff.role &&
         s.id !== currentLoggedInStaff.id
     );
-    
+
     sameRoleStaff.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
         opt.textContent = `${s.name} (RC: ${s.rcno})`;
         acceptSelect.appendChild(opt);
     });
-    
+
     if (currentVal && acceptSelect.querySelector(`option[value="${currentVal}"]`)) {
         acceptSelect.value = currentVal;
         updateAcceptStaffDetails(currentVal);
@@ -1223,43 +1237,43 @@ function updateRequestSummary() {
     const acceptDuty = document.getElementById('acceptCurrentDuty').value;
     const swapDate = document.getElementById('swapDate').value;
     const reason = document.getElementById('swapReason').value;
-    
+
     const summaryDiv = document.getElementById('requestSummary');
-    
+
     if (!requestStaffName || !requestDuty || !acceptStaffName || !acceptDuty || !swapDate) {
         summaryDiv.innerHTML = '<p style="color: #b28b44; font-size:0.85rem;">Please fill all required details to see summary</p>';
         return;
     }
-    
+
     summaryDiv.innerHTML = `
-        <div style="background: #f8f1e0; padding: 12px; border-radius: 14px; margin-top: 8px; font-size:0.85rem;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
-                <div style="border-right: 1px solid #e0d0b0; padding-right: 12px;">
-                    <div style="font-weight: 700; color: #b87c1a; font-size:0.8rem;">👤 Request</div>
-                    <div style="font-size:0.85rem;">${requestStaffName}</div>
-                    <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${requestStaffRcNo}</div>
-                    <div style="margin-top:2px;">
-                        <span class="duty-badge ${getDutyBadgeClass(requestDuty)}">${requestDuty}</span>
+            <div style="background: #f8f1e0; padding: 12px; border-radius: 14px; margin-top: 8px; font-size:0.85rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                    <div style="border-right: 1px solid #e0d0b0; padding-right: 12px;">
+                        <div style="font-weight: 700; color: #b87c1a; font-size:0.8rem;">👤 Request</div>
+                        <div style="font-size:0.85rem;">${requestStaffName}</div>
+                        <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${requestStaffRcNo}</div>
+                        <div style="margin-top:2px;">
+                            <span class="duty-badge ${getDutyBadgeClass(requestDuty)}">${requestDuty}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: #2c6e2c; font-size:0.8rem;">🤝 Accept</div>
+                        <div style="font-size:0.85rem;">${acceptStaffName}</div>
+                        <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${acceptStaffRcNo}</div>
+                        <div style="margin-top:2px;">
+                            <span class="duty-badge ${getDutyBadgeClass(acceptDuty)}">${acceptDuty}</span>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <div style="font-weight: 700; color: #2c6e2c; font-size:0.8rem;">🤝 Accept</div>
-                    <div style="font-size:0.85rem;">${acceptStaffName}</div>
-                    <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${acceptStaffRcNo}</div>
-                    <div style="margin-top:2px;">
-                        <span class="duty-badge ${getDutyBadgeClass(acceptDuty)}">${acceptDuty}</span>
-                    </div>
+                <div style="padding-top: 8px; border-top: 1px solid #e0d0b0;">
+                    <div style="font-weight: 600; font-size:0.85rem;">📅 ${swapDate}</div>
+                    ${reason ? `<div style="font-size:0.8rem; color: #7a5c1a;">📝 ${reason}</div>` : ''}
+                </div>
+                <div style="margin-top: 8px; padding: 6px; background: #fff8e0; border-radius: 8px; text-align: center; font-weight: 600; color: #b87c1a; font-size:0.8rem;">
+                    🔄 ${requestStaffName} ↔ ${acceptStaffName}
                 </div>
             </div>
-            <div style="padding-top: 8px; border-top: 1px solid #e0d0b0;">
-                <div style="font-weight: 600; font-size:0.85rem;">📅 ${swapDate}</div>
-                ${reason ? `<div style="font-size:0.8rem; color: #7a5c1a;">📝 ${reason}</div>` : ''}
-            </div>
-            <div style="margin-top: 8px; padding: 6px; background: #fff8e0; border-radius: 8px; text-align: center; font-weight: 600; color: #b87c1a; font-size:0.8rem;">
-                🔄 ${requestStaffName} ↔ ${acceptStaffName}
-            </div>
-        </div>
-    `;
+        `;
 }
 
 // ========== LOAD ALL DATA ==========
@@ -1268,14 +1282,14 @@ async function loadAllData() {
         console.log('No user logged in');
         return;
     }
-    
+
     console.log('🔄 Loading data for:', currentLoggedInStaff.name);
-    
+
     const allRequests = await loadDutyChangeRequests({});
     allRequestsCache = allRequests;
-    
+
     updateRequestLimitDisplay();
-    
+
     await loadMyDutyRequests();
     await loadReceivedRequests();
     await loadAdminRequests();
@@ -1287,23 +1301,23 @@ function updateRequestLimitDisplay() {
         document.getElementById('requestLimitDisplay').style.display = 'none';
         return;
     }
-    
+
     const info = getRequestLimitInfo(currentLoggedInStaff.id, allRequestsCache);
     const currentHalf = getCurrentMonthHalf();
     const periodLabel = currentHalf === 'first' ? '1-15' : '16-31';
-    
+
     document.getElementById('requestLimitDisplay').style.display = 'block';
     document.getElementById('firstHalfLabel').textContent = `Month (${periodLabel})`;
     document.getElementById('firstHalfUsed').textContent = info.usedCount;
     document.getElementById('pendingCount').textContent = info.pendingCount;
     document.getElementById('approvedCount').textContent = info.approvedCount;
-    
+
     const swapDate = document.getElementById('swapDate').value;
     if (swapDate) {
         const canRequest = info.canRequest;
         const submitBtn = document.getElementById('submitDutyChangeBtn');
         const warning = document.getElementById('requestLimitWarning');
-        
+
         if (!canRequest) {
             submitBtn.disabled = true;
             warning.style.display = 'block';
@@ -1320,43 +1334,43 @@ async function submitDutyChange() {
         showTemporaryFeedback('⚠️ Please login first', true);
         return;
     }
-    
+
     const requestDuty = document.getElementById('requestCurrentDuty').value;
     const acceptId = document.getElementById('dutyAcceptStaff').value;
     const acceptDuty = document.getElementById('acceptCurrentDuty').value;
     const swapDate = document.getElementById('swapDate').value;
     const reason = document.getElementById('swapReason').value;
-    
+
     if (!requestDuty) { showTemporaryFeedback('⚠️ Select your current duty', true); return; }
     if (!acceptId) { showTemporaryFeedback('⚠️ Select accepting staff', true); return; }
     if (!acceptDuty) { showTemporaryFeedback('⚠️ Select accept staff current duty', true); return; }
     if (!swapDate) { showTemporaryFeedback('⚠️ Select swap date', true); return; }
-    
+
     const acceptStaff = getStaffById(acceptId);
     if (!acceptStaff) { showTemporaryFeedback('⚠️ Invalid staff', true); return; }
-    if (acceptStaff.id === currentLoggedInStaff.id) { 
-        showTemporaryFeedback('⚠️ Cannot swap with yourself', true); 
-        return; 
+    if (acceptStaff.id === currentLoggedInStaff.id) {
+        showTemporaryFeedback('⚠️ Cannot swap with yourself', true);
+        return;
     }
-    
+
     if (currentLoggedInStaff.role !== acceptStaff.role) {
         showTemporaryFeedback(`⚠️ You can only swap with ${currentLoggedInStaff.role}s`, true);
         return;
     }
-    
+
     const validation = canRequestSwap(
-        currentLoggedInStaff.id, 
-        requestDuty, 
-        swapDate, 
-        acceptId, 
+        currentLoggedInStaff.id,
+        requestDuty,
+        swapDate,
+        acceptId,
         allRequestsCache
     );
-    
+
     if (!validation.canRequest) {
         showTemporaryFeedback('⚠️ ' + validation.errors[0], true);
         return;
     }
-    
+
     const request = {
         requesterId: currentLoggedInStaff.id,
         requesterName: currentLoggedInStaff.name,
@@ -1373,7 +1387,7 @@ async function submitDutyChange() {
         status: 'pending',
         isOffDutySwap: isOffDuty(requestDuty) || isOffDuty(acceptDuty)
     };
-    
+
     const ok = await saveDutyChangeRequest(request);
     if (ok) {
         showTemporaryFeedback('✅ Duty swap request submitted! Waiting for staff acceptance.');
@@ -1395,46 +1409,46 @@ async function loadMyDutyRequests() {
         container.innerHTML = '<div class="empty-state">Login to see your requests</div>';
         return;
     }
-    
+
     const allRequests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
     const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
-    
+
     if (currentPeriodRequests.length === 0) {
         container.innerHTML = '<div class="empty-state">No swap requests for current period</div>';
         return;
     }
-    
+
     const statusMap = {
         'pending': '⏳ Pending',
         'approved': '✅ Approved',
         'rejected': '❌ Rejected'
     };
-    
+
     container.innerHTML = currentPeriodRequests.map(r => `
-        <div class="request-item">
-            <div class="request-info">
-                <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
-                <div style="font-size:0.8rem; margin-top:2px;">
-                    👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
-                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+            <div class="request-item">
+                <div class="request-info">
+                    <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
+                    <div style="font-size:0.8rem; margin-top:2px;">
+                        👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                        <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+                    </div>
+                    <div style="font-size:0.8rem;">
+                        🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                        <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                    </div>
+                    ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
+                    <div style="margin-top:2px;">
+                        Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                        ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
+                    </div>
                 </div>
-                <div style="font-size:0.8rem;">
-                    🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
-                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
-                </div>
-                ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
-                <div style="margin-top:2px;">
-                    Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
-                    ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
-                </div>
+                ${r.status === 'pending' ? `
+                    <div class="request-actions">
+                        <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">Cancel</button>
+                    </div>
+                ` : ''}
             </div>
-            ${r.status === 'pending' ? `
-                <div class="request-actions">
-                    <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">Cancel</button>
-                </div>
-            ` : ''}
-        </div>
-    `).join('');
+        `).join('');
 }
 
 // ========== RECEIVED REQUESTS ==========
@@ -1444,91 +1458,91 @@ async function loadReceivedRequests() {
         container.innerHTML = '<div class="empty-state">Login to see requests</div>';
         return;
     }
-    
-    const allRequests = await loadDutyChangeRequests({ 
+
+    const allRequests = await loadDutyChangeRequests({
         acceptStaffId: currentLoggedInStaff.id,
         status: 'pending'
     });
-    
+
     const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
-    
+
     if (currentPeriodRequests.length === 0) {
         container.innerHTML = '<div class="empty-state">No pending requests received from other staff for current period</div>';
         return;
     }
-    
+
     container.innerHTML = currentPeriodRequests.map(r => `
-        <div class="request-item received">
-            <div class="request-info">
-                <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
-                <div style="font-size:0.8rem; margin-top:2px;">
-                    👤 From: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
-                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+            <div class="request-item received">
+                <div class="request-info">
+                    <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
+                    <div style="font-size:0.8rem; margin-top:2px;">
+                        👤 From: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                        <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+                    </div>
+                    <div style="font-size:0.8rem;">
+                        🤝 Your Duty: <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                    </div>
+                    ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
+                    <div style="margin-top:2px;">
+                        Status: <span class="badge badge-pending">⏳ Pending</span>
+                    </div>
                 </div>
-                <div style="font-size:0.8rem;">
-                    🤝 Your Duty: <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
-                </div>
-                ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
-                <div style="margin-top:2px;">
-                    Status: <span class="badge badge-pending">⏳ Pending</span>
+                <div class="request-actions">
+                    <button class="btn-accept" onclick="window.acceptSwapRequest('${r.id}')">✅ Accept</button>
+                    <button class="btn-danger" onclick="window.rejectSwapRequest('${r.id}')">❌ Reject</button>
                 </div>
             </div>
-            <div class="request-actions">
-                <button class="btn-accept" onclick="window.acceptSwapRequest('${r.id}')">✅ Accept</button>
-                <button class="btn-danger" onclick="window.rejectSwapRequest('${r.id}')">❌ Reject</button>
-            </div>
-        </div>
-    `).join('');
+        `).join('');
 }
 
 // ========== ADMIN REQUESTS ==========
 async function loadAdminRequests() {
     const container = document.getElementById('adminRequestsList');
     const section = document.getElementById('adminSection');
-    
+
     if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Admin') {
         section.style.display = 'none';
         return;
     }
-    
+
     section.style.display = 'block';
     const allRequests = await loadDutyChangeRequests({});
     const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
-    
+
     if (currentPeriodRequests.length === 0) {
         container.innerHTML = '<div class="empty-state">No swap requests for current period</div>';
         return;
     }
-    
+
     const statusMap = {
         'pending': '⏳ Pending',
         'approved': '✅ Approved',
         'rejected': '❌ Rejected'
     };
-    
+
     container.innerHTML = currentPeriodRequests.map(r => `
-        <div class="request-item admin">
-            <div class="request-info">
-                <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
-                <div style="font-size:0.8rem; margin-top:2px;">
-                    👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
-                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+            <div class="request-item admin">
+                <div class="request-info">
+                    <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
+                    <div style="font-size:0.8rem; margin-top:2px;">
+                        👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                        <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+                    </div>
+                    <div style="font-size:0.8rem;">
+                        🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                        <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                    </div>
+                    ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
+                    <div style="margin-top:2px;">
+                        Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                        ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
+                    </div>
                 </div>
-                <div style="font-size:0.8rem;">
-                    🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
-                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
-                </div>
-                ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
-                <div style="margin-top:2px;">
-                    Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
-                    ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
+                <div class="request-actions">
+                    <button class="btn-danger" onclick="window.deleteDutyRequest('${r.id}')">🗑️</button>
                 </div>
             </div>
-            <div class="request-actions">
-                <button class="btn-danger" onclick="window.deleteDutyRequest('${r.id}')">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+        `).join('');
 }
 
 // ========== LOGOUT FUNCTION ==========
@@ -1537,21 +1551,21 @@ function logoutUser() {
         showTemporaryFeedback('⚠️ You are not logged in', true);
         return;
     }
-    
+
     if (!confirm(`Logout ${currentLoggedInStaff.name}?`)) {
         return;
     }
-    
+
     currentLoggedInStaff = null;
     allRequestsCache = [];
     localStorage.removeItem(STORAGE_KEY);
-    
+
     // Reset UI
     document.getElementById('currentUserDisplay').style.display = 'none';
     document.getElementById('profileShortName').innerHTML = 'Login';
     document.getElementById('profileAvatar').innerHTML = '👤';
     document.getElementById('profileMenu').classList.remove('show');
-    
+
     // Reset search dropdown
     const searchInput = document.getElementById('staffSearchInput');
     if (searchInput) {
@@ -1569,7 +1583,7 @@ function logoutUser() {
     if (hiddenSelect) {
         hiddenSelect.value = '';
     }
-    
+
     document.getElementById('requestStaffName').value = '';
     document.getElementById('requestStaffRcNo').value = '';
     document.getElementById('submitDutyChangeBtn').disabled = true;
@@ -1584,7 +1598,7 @@ function logoutUser() {
     document.getElementById('acceptStaffRcNo').value = '';
     document.getElementById('acceptCurrentDuty').value = '';
     document.getElementById('swapReason').value = '';
-    
+
     showTemporaryFeedback('👋 Logged out!');
     console.log('👋 User logged out');
 }
@@ -1609,23 +1623,23 @@ window.acceptSwapRequest = async function(id) {
         showTemporaryFeedback('❌ You are not authorized to accept this request', true);
         return;
     }
-    
+
     if (!confirm('Accept this swap request?')) return;
-    
+
     showLoadingPopup('⏳ Processing...', 'Please wait...');
-    
+
     try {
         const ok = await updateDutyChangeStatus(id, 'approved');
-        
+
         if (!ok) {
             hideLoadingPopup();
             showTemporaryFeedback('❌ Failed to accept request', true);
             return;
         }
-        
+
         showLoadingPopup('📧 Sending...', 'Notifying supervisors...');
         await new Promise(resolve => setTimeout(resolve, 800));
-        
+
         const swapData = {
             swapDate: request.swapDate,
             requesterId: request.requesterId,
@@ -1640,14 +1654,14 @@ window.acceptSwapRequest = async function(id) {
             acceptStaffDuty: request.acceptStaffDuty,
             reason: request.reason || ''
         };
-        
+
         await sendSwapEmail(swapData);
-        
+
         showSuccessPopup(
             '✅ Duty Change Approved!',
             `${request.requesterName} ↔ ${request.acceptStaffName}\n📅 ${request.swapDate}`
         );
-        
+
         const popupContent = document.querySelector('#loadingPopup .loading-content');
         const existingBtn = popupContent.querySelector('.btn-close-popup');
         if (!existingBtn) {
@@ -1660,7 +1674,7 @@ window.acceptSwapRequest = async function(id) {
             };
             popupContent.appendChild(closeBtn);
         }
-        
+
     } catch (error) {
         console.error('Error:', error);
         hideLoadingPopup();
@@ -1679,7 +1693,7 @@ window.rejectSwapRequest = async function(id) {
         showTemporaryFeedback('❌ You are not authorized to reject this request', true);
         return;
     }
-    
+
     if (!confirm('Reject this swap request?')) return;
     const ok = await updateDutyChangeStatus(id, 'rejected');
     if (ok) {
@@ -1718,19 +1732,19 @@ function showTemporaryFeedback(message, isError = false) {
 // ========== INIT ==========
 async function initApp() {
     console.log('🚀 Initializing Duty Change App...');
-    
+
     // 1. Initialize Firebase
     initFirebase();
-    
+
     // 2. Setup UI components (no Firebase calls)
     initPatternLock();
     buildKeypad();
     initChangePatternGrid();
     buildChangePinKeypad();
-    
+
     // 3. Setup searchable dropdown
     const searchDropdown = setupSearchableDropdown();
-    
+
     // 4. Check for persistent login
     const savedStaff = getLoggedInStaff();
     if (savedStaff) {
@@ -1738,16 +1752,16 @@ async function initApp() {
         if (staff) {
             // Load credentials for this staff
             await loadSpecificStaffCredentials(staff.id);
-            
+
             // Also load all staff data for this user (only once)
             await loadStaffForLoggedInUser();
-            
+
             currentLoggedInStaff = staff;
             document.getElementById('currentUserDisplay').style.display = 'inline-block';
             document.getElementById('currentUserName').innerHTML = `${staff.name} (RC: ${staff.rcno})`;
             document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
             document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
-            
+
             // Set search input and selected display
             const searchInput = document.getElementById('staffSearchInput');
             if (searchInput) {
@@ -1765,14 +1779,14 @@ async function initApp() {
             if (hiddenSelect) {
                 hiddenSelect.value = staff.id;
             }
-            
+
             populateDutyForm(staff);
             await loadAllData();
-            
+
             showTemporaryFeedback(`👋 Welcome back ${staff.name}!`);
         }
     }
-    
+
     // ========== LOGIN EVENT ==========
     const hiddenSelect = document.getElementById('loginStaffSelect');
     hiddenSelect.addEventListener('change', async (e) => {
@@ -1805,11 +1819,11 @@ async function initApp() {
             }
         }
     });
-    
+
     document.getElementById('dutyAcceptStaff').addEventListener('change', (e) => {
         updateAcceptStaffDetails(e.target.value);
     });
-    
+
     document.getElementById('requestCurrentDuty').addEventListener('change', updateRequestSummary);
     document.getElementById('acceptCurrentDuty').addEventListener('change', updateRequestSummary);
     document.getElementById('swapDate').addEventListener('change', () => {
@@ -1817,17 +1831,17 @@ async function initApp() {
         updateRequestLimitDisplay();
     });
     document.getElementById('swapReason').addEventListener('input', updateRequestSummary);
-    
+
     document.getElementById('submitDutyChangeBtn').addEventListener('click', submitDutyChange);
     document.getElementById('refreshBtn').addEventListener('click', async () => {
         showTemporaryFeedback('🔄 Refreshing...');
         await loadAllData();
         showTemporaryFeedback('✅ Refreshed!');
     });
-    
+
     const dateInput = document.getElementById('swapDate');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-    
+
     // Modal events
     document.querySelectorAll('.modal-tab-btn').forEach(btn => btn.addEventListener('click', () => {
         const tabId = btn.dataset.modalTab;
@@ -1837,12 +1851,12 @@ async function initApp() {
         document.getElementById('numericTab').classList.toggle('active-pane', tabId === 'numeric');
         if (tabId === 'pattern') setTimeout(() => resizeCanvas(), 30);
     }));
-    
+
     document.getElementById('resetPatternBtn').onclick = resetPattern;
     document.getElementById('clearNumericBtn').onclick = clearNumeric;
     document.getElementById('deleteNumericBtn').onclick = deleteNumeric;
     document.getElementById('modalCloseBtn').onclick = () => closeAuthModal(false);
-    
+
     document.querySelectorAll('.change-method-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             changeMode = btn.dataset.changeMethod;
@@ -1853,12 +1867,12 @@ async function initApp() {
             if (changeMode === 'pattern') setTimeout(() => resizeChangeCanvas(), 30);
         });
     });
-    
+
     document.getElementById('resetChangePatternBtn').onclick = resetChangePattern;
     document.getElementById('saveNewCodeBtn').onclick = saveNewCode;
     document.getElementById('cancelChangeBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
     document.getElementById('closeChangeModalBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
-    
+
     const profileBtn = document.getElementById('profileButton');
     const profileMenu = document.getElementById('profileMenu');
     profileBtn.addEventListener('click', (e) => {
@@ -1866,7 +1880,7 @@ async function initApp() {
         profileMenu.classList.toggle('show');
     });
     document.addEventListener('click', () => profileMenu.classList.remove('show'));
-    
+
     document.getElementById('profileViewAction').onclick = () => {
         if (currentLoggedInStaff) {
             alert(`👤 ${currentLoggedInStaff.name}\nRole: ${currentLoggedInStaff.role}\nRC No: ${currentLoggedInStaff.rcno}\nContact: ${currentLoggedInStaff.contact || 'N/A'}`);
@@ -1875,7 +1889,7 @@ async function initApp() {
         }
         profileMenu.classList.remove('show');
     };
-    
+
     document.getElementById('profileChangePass').onclick = () => {
         if (currentLoggedInStaff) {
             activeStaffForChange = currentLoggedInStaff;
@@ -1890,19 +1904,19 @@ async function initApp() {
         }
         profileMenu.classList.remove('show');
     };
-    
+
     document.getElementById('logoutAction').addEventListener('click', function(e) {
         e.stopPropagation();
         logoutUser();
     });
-    
+
     if (!currentLoggedInStaff) {
         document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
         document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
         document.getElementById('adminSection').style.display = 'none';
         updateRequestSummary();
     }
-    
+
     console.log('✅ Duty Swap App initialized');
 }
 
