@@ -27,11 +27,11 @@ let pendingAuth = { staff: null, viewType: null, selectEl: null, prevDropdownVal
 
 function initStaffData() {
     staffData = staffList.map(staff => ({
-        id: staff.id,          // RCNo is the ID
+        id: staff.id,
         name: staff.name,
         role: staff.role || 'Staff',
         contact: staff.contact || '',
-        rcno: staff.id,        // RCNo is the ID
+        rcno: staff.id,
         pass: staff.pass || '',
         pattern: staff.pattern || ''
     }));
@@ -40,10 +40,6 @@ function initStaffData() {
 
 function getStaffById(id) { 
     return staffData.find(s => s.id === id); 
-}
-
-function getStaffByRcNo(rcno) {
-    return staffData.find(s => s.rcno === rcno);
 }
 
 async function loadCredentialsFromFirebase() {
@@ -531,16 +527,18 @@ async function saveNewCode() {
 
 // ========== DUTY CHANGE UI ==========
 function populateDutyForm(staff) {
-    const rcInput = document.getElementById('dutyRcNo');
-    if (rcInput) rcInput.value = staff.rcno || '';
+    // Set request staff details
+    document.getElementById('requestStaffName').value = staff.name;
+    document.getElementById('requestStaffRcNo').value = staff.rcno || '';
     
     const dateInput = document.getElementById('dutyDate');
     if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
     
+    // Populate accept staff dropdown
     const acceptSelect = document.getElementById('dutyAcceptStaff');
     if (acceptSelect) {
         const currentVal = acceptSelect.value;
-        acceptSelect.innerHTML = '<option value="">-- Select --</option>';
+        acceptSelect.innerHTML = '<option value="">-- Select Accepting Staff --</option>';
         staffData.forEach(s => {
             if (s.id !== staff.id) {
                 const opt = document.createElement('option');
@@ -551,9 +549,62 @@ function populateDutyForm(staff) {
         });
         if (currentVal && acceptSelect.querySelector(`option[value="${currentVal}"]`)) {
             acceptSelect.value = currentVal;
+            updateAcceptStaffDetails(currentVal);
         }
     }
     document.getElementById('submitDutyChangeBtn').disabled = false;
+    updateRequestSummary();
+}
+
+function updateAcceptStaffDetails(staffId) {
+    const staff = getStaffById(staffId);
+    if (staff) {
+        document.getElementById('acceptStaffName').value = staff.name;
+        document.getElementById('acceptStaffRcNo').value = staff.rcno || '';
+    } else {
+        document.getElementById('acceptStaffName').value = '';
+        document.getElementById('acceptStaffRcNo').value = '';
+    }
+    updateRequestSummary();
+}
+
+function updateRequestSummary() {
+    const requestStaffName = document.getElementById('requestStaffName').value;
+    const requestStaffRcNo = document.getElementById('requestStaffRcNo').value;
+    const dutyDate = document.getElementById('dutyDate').value;
+    const dutyShift = document.getElementById('dutyShift').value;
+    const acceptStaffName = document.getElementById('acceptStaffName').value;
+    const acceptStaffRcNo = document.getElementById('acceptStaffRcNo').value;
+    
+    const summaryDiv = document.getElementById('requestSummary');
+    
+    if (!requestStaffName || !dutyDate || !acceptStaffName) {
+        summaryDiv.innerHTML = '<p style="color: #b28b44;">Please fill all details to see summary</p>';
+        return;
+    }
+    
+    const shiftText = dutyShift === 'Morning' ? '🌅 Morning (07:30 - 15:30)' : '🌙 Evening (15:30 - 23:30)';
+    
+    summaryDiv.innerHTML = `
+        <div style="background: #f8f1e0; padding: 15px; border-radius: 16px; margin-top: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="border-right: 1px solid #e0d0b0; padding-right: 15px;">
+                    <div style="font-weight: 700; color: #b87c1a;">Request Staff</div>
+                    <div style="margin-top: 5px;">👤 ${requestStaffName}</div>
+                    <div style="font-size: 0.85rem; color: #7a5c1a;">RC: ${requestStaffRcNo}</div>
+                </div>
+                <div>
+                    <div style="font-weight: 700; color: #2c6e2c;">Accept Staff</div>
+                    <div style="margin-top: 5px;">👤 ${acceptStaffName}</div>
+                    <div style="font-size: 0.85rem; color: #7a5c1a;">RC: ${acceptStaffRcNo}</div>
+                </div>
+            </div>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0d0b0;">
+                <div style="font-weight: 600;">📅 Date: ${dutyDate}</div>
+                <div style="font-weight: 600;">⏰ Shift: ${shiftText}</div>
+            </div>
+        </div>
+    `;
 }
 
 async function submitDutyChange() {
@@ -603,8 +654,11 @@ async function submitDutyChange() {
     if (ok) {
         showTemporaryFeedback('✅ Duty change request submitted!');
         document.getElementById('dutyAcceptStaff').value = '';
+        document.getElementById('acceptStaffName').value = '';
+        document.getElementById('acceptStaffRcNo').value = '';
         await loadMyDutyRequests();
         await loadAllDutyRequests();
+        updateRequestSummary();
     } else {
         showTemporaryFeedback('❌ Failed to submit request', true);
     }
@@ -626,9 +680,16 @@ async function loadMyDutyRequests() {
     container.innerHTML = requests.map(r => `
         <div class="request-item">
             <div class="request-info">
-                <strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift} · 
-                👤 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
-                <br><small>Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span></small>
+                <div><strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift}</div>
+                <div style="font-size: 0.85rem; margin-top: 4px;">
+                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                </div>
+                <div style="font-size: 0.85rem;">
+                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                </div>
+                <div style="margin-top: 4px;">
+                    Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
+                </div>
             </div>
             ${r.status === 'pending' ? `
                 <div class="request-actions">
@@ -665,10 +726,16 @@ async function loadAllDutyRequests() {
     container.innerHTML = requests.map(r => `
         <div class="request-item">
             <div class="request-info">
-                <strong>${r.requesterName}</strong> (RC: ${r.requesterRcNo || ''}) → 
-                <strong>${r.acceptStaffName}</strong> (RC: ${r.acceptStaffRcNo || ''})
-                <br>📅 ${r.dutyDate} · ${r.dutyShift}
-                <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
+                <div><strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift}</div>
+                <div style="font-size: 0.85rem; margin-top: 4px;">
+                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                </div>
+                <div style="font-size: 0.85rem;">
+                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                </div>
+                <div style="margin-top: 4px;">
+                    Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
+                </div>
             </div>
             <div class="request-actions">
                 ${r.status === 'pending' ? `
@@ -767,8 +834,12 @@ async function initApp() {
                 document.getElementById('currentUserDisplay').style.display = 'none';
                 document.getElementById('profileShortName').innerHTML = 'Login';
                 document.getElementById('profileAvatar').innerHTML = '👤';
+                document.getElementById('requestStaffName').value = '';
+                document.getElementById('requestStaffRcNo').value = '';
+                document.getElementById('submitDutyChangeBtn').disabled = true;
                 loadMyDutyRequests();
                 loadAllDutyRequests();
+                updateRequestSummary();
             }
             return;
         }
@@ -783,6 +854,15 @@ async function initApp() {
             }
         }
     });
+    
+    // Accept staff dropdown change
+    document.getElementById('dutyAcceptStaff').addEventListener('change', (e) => {
+        updateAcceptStaffDetails(e.target.value);
+    });
+    
+    // Form changes update summary
+    document.getElementById('dutyDate').addEventListener('change', updateRequestSummary);
+    document.getElementById('dutyShift').addEventListener('change', updateRequestSummary);
     
     // Submit duty change
     document.getElementById('submitDutyChangeBtn').addEventListener('click', submitDutyChange);
@@ -859,6 +939,7 @@ async function initApp() {
     // Initial render
     loadMyDutyRequests();
     loadAllDutyRequests();
+    updateRequestSummary();
     
     console.log('✅ Duty Change App initialized');
     console.log(`📊 ${staffData.length} staff members loaded`);
