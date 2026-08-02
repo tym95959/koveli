@@ -188,13 +188,11 @@ async function deleteDutyChange(requestId) {
 function getRequestLimitInfo(staffId, allRequests) {
     const currentHalf = getCurrentMonthHalf();
     
-    // Filter requests for current period only
     const currentPeriodRequests = allRequests.filter(r => 
         r.requesterId === staffId && 
         isCurrentPeriod(r.swapDate)
     );
     
-    // Count only duty changes (exclude Off Duty swaps)
     const dutyChangeRequests = currentPeriodRequests.filter(r => 
         !isOffDuty(r.requesterDuty) && !isOffDuty(r.acceptStaffDuty)
     );
@@ -694,16 +692,13 @@ function updateRequestSummary() {
 async function loadAllData() {
     if (!currentLoggedInStaff) return;
     
-    // Load all requests from Firebase
     const allRequests = await loadDutyChangeRequests({});
     allRequestsCache = allRequests;
     
     console.log('📊 Total requests loaded:', allRequestsCache.length);
     
-    // Update limit display
     updateRequestLimitDisplay();
     
-    // Load all lists - filter for current period only
     await loadMyDutyRequests();
     await loadReceivedRequests();
     await loadAllDutyRequests();
@@ -779,7 +774,6 @@ async function submitDutyChange() {
         }
     }
     
-    // Check if request already exists for this date
     const existing = await loadDutyChangeRequests({ 
         requesterId: currentLoggedInStaff.id,
         swapDate: swapDate
@@ -827,7 +821,6 @@ async function loadMyDutyRequests() {
         return;
     }
     
-    // Get requests where this staff is the requester AND is in current period
     const allRequests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
     const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
     
@@ -870,7 +863,7 @@ async function loadMyDutyRequests() {
     `).join('');
 }
 
-// ========== RECEIVED REQUESTS ==========
+// ========== RECEIVED REQUESTS - ONLY ACCEPT STAFF CAN SEE ==========
 async function loadReceivedRequests() {
     const container = document.getElementById('receivedRequestsList');
     if (!currentLoggedInStaff) {
@@ -878,11 +871,14 @@ async function loadReceivedRequests() {
         return;
     }
     
-    // Get all requests where this staff is the accept staff AND is in current period
-    const allRequests = await loadDutyChangeRequests({ acceptStaffId: currentLoggedInStaff.id });
-    const currentPeriodRequests = allRequests.filter(r => 
-        isCurrentPeriod(r.swapDate) && r.status === 'pending_accept'
-    );
+    // ONLY show requests where this staff is the accept staff AND status is pending_accept
+    const allRequests = await loadDutyChangeRequests({ 
+        acceptStaffId: currentLoggedInStaff.id,
+        status: 'pending_accept'
+    });
+    
+    // Filter for current period
+    const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
     
     console.log('📩 Received requests for', currentLoggedInStaff.name, ':', currentPeriodRequests.length);
     
@@ -985,7 +981,19 @@ window.cancelDutyRequest = async function(id) {
     }
 };
 
+// ONLY Accept Staff can Accept/Reject
 window.acceptSwapRequest = async function(id) {
+    // Verify the logged-in user is the accept staff
+    const request = allRequestsCache.find(r => r.id === id);
+    if (!request) {
+        showTemporaryFeedback('❌ Request not found', true);
+        return;
+    }
+    if (request.acceptStaffId !== currentLoggedInStaff.id) {
+        showTemporaryFeedback('❌ You are not authorized to accept this request', true);
+        return;
+    }
+    
     if (!confirm('Accept this swap request? It will be sent to supervisor for final approval.')) return;
     const ok = await updateDutyChangeStatus(id, 'pending_approval');
     if (ok) {
@@ -995,6 +1003,17 @@ window.acceptSwapRequest = async function(id) {
 };
 
 window.rejectSwapRequest = async function(id) {
+    // Verify the logged-in user is the accept staff
+    const request = allRequestsCache.find(r => r.id === id);
+    if (!request) {
+        showTemporaryFeedback('❌ Request not found', true);
+        return;
+    }
+    if (request.acceptStaffId !== currentLoggedInStaff.id) {
+        showTemporaryFeedback('❌ You are not authorized to reject this request', true);
+        return;
+    }
+    
     if (!confirm('Reject this swap request?')) return;
     const ok = await updateDutyChangeStatus(id, 'rejected');
     if (ok) {
@@ -1003,7 +1022,12 @@ window.rejectSwapRequest = async function(id) {
     }
 };
 
+// Supervisors Approve/Reject
 window.approveDutyRequest = async function(id) {
+    if (currentLoggedInStaff?.role !== 'Supervisor') {
+        showTemporaryFeedback('❌ Only supervisors can approve requests', true);
+        return;
+    }
     const ok = await updateDutyChangeStatus(id, 'approved');
     if (ok) {
         showTemporaryFeedback('✅ Swap request approved');
@@ -1012,6 +1036,10 @@ window.approveDutyRequest = async function(id) {
 };
 
 window.rejectDutyRequest = async function(id) {
+    if (currentLoggedInStaff?.role !== 'Supervisor') {
+        showTemporaryFeedback('❌ Only supervisors can reject requests', true);
+        return;
+    }
     const ok = await updateDutyChangeStatus(id, 'rejected');
     if (ok) {
         showTemporaryFeedback('❌ Swap request rejected');
