@@ -9,260 +9,272 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <!-- Import firebase-config.js -->
     <script src="script/firebase-config.js"></script>
-    <!-- Import staff.js -->
-    <script type="importmap">
-        {
-            "imports": {
-                "script/staff.js": "./script/staff.js"
-            }
-        }
-    </script>
     <link rel="stylesheet" href="css/dutychange.css">
 </head>
 <body>
 
-<div class="app-card">
-    <div class="header">
-        <h1>🔄 Duty Change Request</h1>
-        <div class="nav-buttons">
-            <div class="profile-btn-container">
-                <div class="profile-icon-btn" id="profileButton">
-                    <span class="profile-avatar" id="profileAvatar">👤</span>
-                    <span class="profile-name-short" id="profileShortName">Login</span>
-                </div>
-                <div class="profile-menu" id="profileMenu">
-                    <div class="profile-menu-item" id="profileViewAction">📋 View Profile</div>
-                    <div class="profile-menu-item" id="profileChangePass">🔑 Change Login Code</div>
-                    <div class="profile-menu-item" id="logoutAction" style="color: #c25d2e; border-top: 1px solid #f0e2be; margin-top: 5px; padding-top: 10px;">
-                        🚪 Logout
+    <div class="app-card">
+        <div class="header">
+            <h1>🔄 Duty Change</h1>
+            <div class="nav-buttons">
+                <div class="profile-btn-container">
+                    <div class="profile-icon-btn" id="profileButton">
+                        <span class="profile-avatar" id="profileAvatar">👤</span>
+                        <span class="profile-name-short" id="profileShortName">Login</span>
+                    </div>
+                    <div class="profile-menu" id="profileMenu">
+                        <div class="profile-menu-item" id="profileViewAction">📋 View Profile</div>
+                        <div class="profile-menu-item" id="profileChangePass">🔑 Change Login Code</div>
+                        <div class="profile-menu-item logout" id="logoutAction">🚪 Logout</div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Login Section -->
+        <div class="login-section">
+            <div class="field-group">
+                <label>👤 Login as</label>
+                <!-- Searchable Dropdown -->
+                <div class="search-container" id="staffSearchContainer">
+                    <input
+                    type="text"
+                    id="staffSearchInput"
+                    placeholder="🔍 Type name or RC number..."
+                    autocomplete="off"
+                    >
+                    <div class="dropdown-list" id="staffDropdownList"></div>
+                </div>
+                <input type="hidden" id="loginStaffSelect" value="">
+                <div id="selectedStaffDisplay" style="display: none;">
+                    <div class="selected-user">
+                        <span id="selectedStaffName">—</span>
+                        <span id="selectedStaffRc" style="color:#b28b44;font-size:0.75rem;"></span>
+                        <span class="remove-btn" id="clearSelectedStaff">×</span>
+                    </div>
+                </div>
+            </div>
+            <div id="currentUserDisplay" class="current-user-badge" style="display: none;">
+                ✅ Logged in as: <span id="currentUserName">—</span>
+            </div>
+            <div id="requestLimitDisplay" style="display: none;">
+                <div class="limit-box">
+                    <div class="limit-row">
+                        <div>📊 <strong id="firstHalfLabel">Month (1-15):</strong> <span id="firstHalfUsed">0</span>/2 used</div>
+                        <div>⏳ <strong>Pending:</strong> <span id="pendingCount">0</span></div>
+                        <div>✅ <strong>Approved:</strong> <span id="approvedCount">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div id="requestLimitWarning" style="margin-top: 10px; display: none; color: #c25d2e; text-align: center; font-weight: 600;"></div>
+        </div>
+
+        <!-- Duty Change Request Form -->
+        <div class="duty-card">
+            <h3>📝 Request Duty Change</h3>
+
+            <!-- Request Staff Details -->
+            <div style="background: #f8f1e0; padding: 12px; border-radius: 16px; margin-bottom: 14px;">
+                <h4 style="color: #b87c1a; margin-bottom: 10px;">👤 Request Staff</h4>
+                <div class="field-row">
+                    <label>Name</label>
+                    <input type="text" id="requestStaffName" readonly style="background:#f3efe6;">
+                </div>
+                <div class="field-row">
+                    <label>RC Number</label>
+                    <input type="text" id="requestStaffRcNo" readonly style="background:#f3efe6;">
+                </div>
+                <div class="field-row">
+                    <label>Current Duty</label>
+                    <select id="requestCurrentDuty">
+                        <option value="">-- Select Current Duty --</option>
+                        <option value="Morning 1 (07:30-15:30)">🌅 Morning 1 (07:30-15:30)</option>
+                        <option value="Morning 2 (08:30-16:30)">🌅 Morning 2 (08:30-16:30)</option>
+                        <option value="Afternoon 1 (15:30-23:30)">🌇 Afternoon 1 (15:30-23:30)</option>
+                        <option value="Afternoon 2 (16:30-00:30)">🌇 Afternoon 2 (16:30-00:30)</option>
+                        <option value="Night (00:30-08:30)">🌙 Night (00:30-08:30)</option>
+                        <option value="Off Duty">📴 Off Duty</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Accept Staff Details -->
+            <div style="background: #e8f5e8; padding: 12px; border-radius: 16px; margin-bottom: 14px;">
+                <h4 style="color: #2c6e2c; margin-bottom: 10px;">🤝 Accept Staff</h4>
+                <div class="field-row">
+                    <label>👤 Select Staff</label>
+                    <select id="dutyAcceptStaff">
+                        <option value="">-- Select Accepting Staff --</option>
+                    </select>
+                </div>
+                <div class="field-row">
+                    <label>Name</label>
+                    <input type="text" id="acceptStaffName" readonly style="background:#f3efe6;">
+                </div>
+                <div class="field-row">
+                    <label>RC Number</label>
+                    <input type="text" id="acceptStaffRcNo" readonly style="background:#f3efe6;">
+                </div>
+                <div class="field-row">
+                    <label>Current Duty</label>
+                    <select id="acceptCurrentDuty">
+                        <option value="">-- Select Current Duty --</option>
+                        <option value="Morning 1 (07:30-15:30)">🌅 Morning 1 (07:30-15:30)</option>
+                        <option value="Morning 2 (08:30-16:30)">🌅 Morning 2 (08:30-16:30)</option>
+                        <option value="Afternoon 1 (15:30-23:30)">🌇 Afternoon 1 (15:30-23:30)</option>
+                        <option value="Afternoon 2 (16:30-00:30)">🌇 Afternoon 2 (16:30-00:30)</option>
+                        <option value="Night (00:30-08:30)">🌙 Night (00:30-08:30)</option>
+                        <option value="Off Duty">📴 Off Duty</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Swap Details -->
+            <div style="background: #f0f0ff; padding: 12px; border-radius: 16px; margin-bottom: 14px;">
+                <h4 style="color: #4a4a8a; margin-bottom: 10px;">🔄 Swap Details</h4>
+                <div class="field-row">
+                    <label>📅 Swap Date</label>
+                    <input type="date" id="swapDate" value="">
+                </div>
+                <div class="field-row">
+                    <label>📝 Reason</label>
+                    <input type="text" id="swapReason" placeholder="Enter reason for swap (optional)">
+                </div>
+            </div>
+
+            <button class="btn-primary" id="submitDutyChangeBtn" disabled>📤 Submit Swap Request</button>
+            <button class="btn-secondary" id="refreshBtn" style="margin-top: 10px; width: 100%;">🔄 Refresh Data</button>
+        </div>
+
+        <!-- Request Summary -->
+        <div class="duty-card" style="background: #fff8e8;">
+            <h3>📋 Swap Summary</h3>
+            <div id="requestSummary" style="padding: 10px; color: #5c4311;">
+                <p style="color: #b28b44; font-size:0.85rem;">Please login and fill all details to see summary</p>
+            </div>
+        </div>
+
+        <!-- My Requests -->
+        <div class="duty-card">
+            <h3>📋 My Duty Swap Requests</h3>
+            <div id="myDutyRequestsList">
+                <div class="empty-state">Login to see your requests</div>
+            </div>
+        </div>
+
+        <!-- Received Requests -->
+        <div class="duty-card" id="receivedRequestsSection">
+            <h3>📩 Requests Received For You</h3>
+            <div id="receivedRequestsList">
+                <div class="empty-state">Login to see requests</div>
+            </div>
+        </div>
+
+        <!-- Admin Section - Only visible to Admins -->
+        <div class="duty-card" id="adminSection" style="display: none;">
+            <h3>🛡️ Admin - All Duty Change Requests</h3>
+            <div id="adminRequestsList">
+                <div class="empty-state">No requests found</div>
+            </div>
+            <div style="margin-top: 10px;">
+                <button class="btn-danger" style="width: 100%; padding: 12px; font-size: 1rem;" onclick="window.deleteAllDutyChanges()">
+                    🗑️ Delete All Requests
+                </button>
+            </div>
+        </div>
+
+        <div class="footer-note">🔄 Duty swap requests require acceptance by the receiving staff</div>
     </div>
 
-    <!-- Login Section -->
-    <div class="login-section">
-        <div class="field-group">
-            <label>👤 Login as</label>
-            <select id="loginStaffSelect">
-                <option value="">-- Select Staff Member --</option>
-            </select>
-        </div>
-        <div id="currentUserDisplay" class="current-user-badge" style="display: none;">
-            ✅ Logged in as: <span id="currentUserName">—</span>
-        </div>
-        <div id="requestLimitDisplay" style="display: none;">
-            <div class="limit-box">
-                <div class="limit-row">
-                    <div>📊 <strong id="firstHalfLabel">Month (1-15):</strong> <span id="firstHalfUsed">0</span>/2 used</div>
-                    <div>⏳ <strong>Pending:</strong> <span id="pendingCount">0</span></div>
-                    <div>✅ <strong>Approved:</strong> <span id="approvedCount">0</span></div>
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 id="modalStaffName">Verify identity</h3>
+                <button class="modal-close" id="modalCloseBtn">&times;</button>
+            </div>
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active-tab" data-modal-tab="pattern">🎨 Pattern</button>
+                <button class="modal-tab-btn" data-modal-tab="numeric">🔢 PIN</button>
+            </div>
+            <div id="patternTab" class="tab-pane active-pane">
+                <div class="pattern-wrapper">
+                    <div class="pattern-grid" id="patternGrid"></div>
+                    <canvas id="patternCanvas" width="260" height="260"></canvas>
+                </div>
+                <div class="pattern-status" id="patternStatus">✏️ Draw pattern</div>
+                <div class="pattern-actions">
+                    <button id="resetPatternBtn" class="action-btn">⟳ Reset</button>
+                </div>
+            </div>
+            <div id="numericTab" class="tab-pane">
+                <div class="numeric-display" id="numericInput">●●●●</div>
+                <div class="keypad-grid" id="keypad"></div>
+                <div style="display: flex; gap: 12px;">
+                    <button id="clearNumericBtn" class="action-btn">Clear</button>
+                    <button id="deleteNumericBtn" class="action-btn">⌫</button>
                 </div>
             </div>
         </div>
-        <div id="requestLimitWarning" style="margin-top: 10px; display: none; color: #c25d2e; text-align: center; font-weight: 600;"></div>
     </div>
 
-    <!-- Duty Change Request Form -->
-    <div class="duty-card">
-        <h3>📝 Request Duty Change</h3>
-        
-        <!-- Request Staff Details -->
-        <div style="background: #f8f1e0; padding: 15px; border-radius: 20px; margin-bottom: 20px;">
-            <h4 style="color: #b87c1a; margin-bottom: 12px;">👤 Request Staff</h4>
-            <div class="field-row">
-                <label>Name</label>
-                <input type="text" id="requestStaffName" readonly style="background:#f3efe6;">
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal-overlay">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>🔐 Change Login Code</h3>
+                <button class="modal-close" id="closeChangeModalBtn">&times;</button>
             </div>
-            <div class="field-row">
-                <label>RC Number</label>
-                <input type="text" id="requestStaffRcNo" readonly style="background:#f3efe6;">
+            <div class="change-pass-tabs">
+                <button class="change-method-btn active-method" data-change-method="pattern">🎨 Pattern</button>
+                <button class="change-method-btn" data-change-method="pin">🔢 PIN</button>
             </div>
-            <div class="field-row">
-                <label>Current Duty</label>
-                <select id="requestCurrentDuty">
-                    <option value="">-- Select Current Duty --</option>
-                    <option value="Morning 1 (07:30-15:30)">🌅 Morning 1 (07:30-15:30)</option>
-                    <option value="Morning 2 (08:30-16:30)">🌅 Morning 2 (08:30-16:30)</option>
-                    <option value="Afternoon 1 (15:30-23:30)">🌇 Afternoon 1 (15:30-23:30)</option>
-                    <option value="Afternoon 2 (16:30-00:30)">🌇 Afternoon 2 (16:30-00:30)</option>
-                    <option value="Night (00:30-08:30)">🌙 Night (00:30-08:30)</option>
-                    <option value="Off Duty">📴 Off Duty</option>
-                </select>
+            <div id="changePatternPane" class="tab-pane active-pane">
+                <div class="pattern-wrapper" style="margin:0 auto;">
+                    <div class="pattern-grid" id="changePatternGrid"></div>
+                    <canvas id="changePatternCanvas" width="260" height="260"></canvas>
+                </div>
+                <div class="pattern-status" id="changePatternStatus">📌 Draw new pattern</div>
+                <div class="pattern-actions">
+                    <button id="resetChangePatternBtn" class="action-btn">⟳ Reset</button>
+                </div>
             </div>
-        </div>
-
-        <!-- Accept Staff Details -->
-        <div style="background: #e8f5e8; padding: 15px; border-radius: 20px; margin-bottom: 20px;">
-            <h4 style="color: #2c6e2c; margin-bottom: 12px;">🤝 Accept Staff</h4>
-            <div class="field-row">
-                <label>👤 Select Staff</label>
-                <select id="dutyAcceptStaff">
-                    <option value="">-- Select Accepting Staff --</option>
-                </select>
+            <div id="changePinPane" class="tab-pane">
+                <div class="numeric-display" id="changePinDisplay">●●●●●●</div>
+                <div class="keypad-grid" id="changePinKeypad"></div>
+                <div style="display: flex; gap: 12px;">
+                    <button id="clearChangePinBtn" class="action-btn">Clear</button>
+                    <button id="deleteChangePinBtn" class="action-btn">⌫</button>
+                </div>
             </div>
-            <div class="field-row">
-                <label>Name</label>
-                <input type="text" id="acceptStaffName" readonly style="background:#f3efe6;">
+            <div class="confirm-buttons">
+                <button id="cancelChangeBtn" class="action-btn">Cancel</button>
+                <button id="saveNewCodeBtn" class="action-btn" style="background:#e4bc78;">💾 Save</button>
             </div>
-            <div class="field-row">
-                <label>RC Number</label>
-                <input type="text" id="acceptStaffRcNo" readonly style="background:#f3efe6;">
-            </div>
-            <div class="field-row">
-                <label>Current Duty</label>
-                <select id="acceptCurrentDuty">
-                    <option value="">-- Select Current Duty --</option>
-                    <option value="Morning 1 (07:30-15:30)">🌅 Morning 1 (07:30-15:30)</option>
-                    <option value="Morning 2 (08:30-16:30)">🌅 Morning 2 (08:30-16:30)</option>
-                    <option value="Afternoon 1 (15:30-23:30)">🌇 Afternoon 1 (15:30-23:30)</option>
-                    <option value="Afternoon 2 (16:30-00:30)">🌇 Afternoon 2 (16:30-00:30)</option>
-                    <option value="Night (00:30-08:30)">🌙 Night (00:30-08:30)</option>
-                    <option value="Off Duty">📴 Off Duty</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Swap Details -->
-        <div style="background: #f0f0ff; padding: 15px; border-radius: 20px; margin-bottom: 20px;">
-            <h4 style="color: #4a4a8a; margin-bottom: 12px;">🔄 Duty Change Details</h4>
-            <div class="field-row">
-                <label>📅 Change Date</label>
-                <input type="date" id="swapDate" value="">
-            </div>
-            <div class="field-row">
-                <label>📝 Reason</label>
-                <input type="text" id="swapReason" placeholder="Enter reason for duty change (optional)">
-            </div>
-        </div>
-
-        <button class="btn-primary" id="submitDutyChangeBtn" disabled>📤 Submit Change Request</button>
-        <button class="btn-secondary" id="refreshBtn" style="margin-top: 10px; width: 100%;">🔄 Refresh Data</button>
-    </div>
-
-    <!-- Request Summary -->
-    <div class="duty-card" style="background: #fff8e8;">
-        <h3>📋 Duty Change Summary</h3>
-        <div id="requestSummary" style="padding: 10px; color: #5c4311;">
-            <p style="color: #b28b44;">Please login and fill all details to see summary</p>
+            <div id="changeFeedback" class="feedback-msg"></div>
         </div>
     </div>
 
-    <!-- My Requests -->
-    <div class="duty-card">
-        <h3>📋 My Duty Change Requests</h3>
-        <div id="myDutyRequestsList">
-            <div class="empty-state">Login to see your requests</div>
+    <!-- Toast Message -->
+    <div id="messageToast" class="message-toast"></div>
+
+    <!-- Loading Popup -->
+    <div id="loadingPopup" class="loading-popup">
+        <div class="loading-content">
+            <div id="loadingSpinner" class="spinner"></div>
+            <div id="loadingIcon" style="display: none;"></div>
+            <div class="loading-title" id="loadingTitle">Processing...</div>
+            <div class="loading-subtitle" id="loadingSubtitle">Please wait</div>
         </div>
     </div>
 
-    <!-- Received Requests -->
-    <div class="duty-card" id="receivedRequestsSection">
-        <h3>📩 Requests Received For You</h3>
-        <div id="receivedRequestsList">
-            <div class="empty-state">Login to see requests</div>
-        </div>
-    </div>
-
-    <!-- Admin Section - Only visible to Admins -->
-    <div class="duty-card" id="adminSection" style="display: none;">
-        <h3>🛡️ Admin - All Duty Change Requests</h3>
-        <div id="adminRequestsList">
-            <div class="empty-state">No requests found</div>
-        </div>
-        <div style="margin-top: 10px;">
-            <button class="btn-danger" style="width: 100%; padding: 12px; font-size: 1rem;" onclick="window.deleteAllDutyChanges()">
-                🗑️ Delete All Requests
-            </button>
-        </div>
-    </div>
-
-    <div class="footer-note">🔄 Duty change requests require acceptance by the receiving staff</div>
-</div>
-
-<!-- Password Modal -->
-<div id="passwordModal" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3 id="modalStaffName">Verify identity</h3>
-            <button class="modal-close" id="modalCloseBtn">&times;</button>
-        </div>
-        <div class="modal-tabs">
-            <button class="modal-tab-btn active-tab" data-modal-tab="pattern">🎨 Pattern</button>
-            <button class="modal-tab-btn" data-modal-tab="numeric">🔢 PIN</button>
-        </div>
-        <div id="patternTab" class="tab-pane active-pane">
-            <div class="pattern-wrapper">
-                <div class="pattern-grid" id="patternGrid"></div>
-                <canvas id="patternCanvas" width="260" height="260"></canvas>
-            </div>
-            <div class="pattern-status" id="patternStatus">✏️ Draw pattern</div>
-            <div class="pattern-actions">
-                <button id="resetPatternBtn" class="action-btn">⟳ Reset</button>
-            </div>
-        </div>
-        <div id="numericTab" class="tab-pane">
-            <div class="numeric-display" id="numericInput">●●●●</div>
-            <div class="keypad-grid" id="keypad"></div>
-            <div style="display: flex; gap: 12px;">
-                <button id="clearNumericBtn" class="action-btn">Clear</button>
-                <button id="deleteNumericBtn" class="action-btn">⌫</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Change Password Modal -->
-<div id="changePasswordModal" class="modal-overlay">
-    <div class="modal-container" style="max-width: 500px;">
-        <div class="modal-header">
-            <h3>🔐 Change Login Code</h3>
-            <button class="modal-close" id="closeChangeModalBtn">&times;</button>
-        </div>
-        <div class="change-pass-tabs">
-            <button class="change-method-btn active-method" data-change-method="pattern">🎨 Pattern</button>
-            <button class="change-method-btn" data-change-method="pin">🔢 PIN</button>
-        </div>
-        <div id="changePatternPane" class="tab-pane active-pane">
-            <div class="pattern-wrapper" style="margin:0 auto;">
-                <div class="pattern-grid" id="changePatternGrid"></div>
-                <canvas id="changePatternCanvas" width="260" height="260"></canvas>
-            </div>
-            <div class="pattern-status" id="changePatternStatus">📌 Draw new pattern</div>
-            <div class="pattern-actions">
-                <button id="resetChangePatternBtn" class="action-btn">⟳ Reset</button>
-            </div>
-        </div>
-        <div id="changePinPane" class="tab-pane">
-            <div class="numeric-display" id="changePinDisplay">●●●●●●</div>
-            <div class="keypad-grid" id="changePinKeypad"></div>
-            <div style="display: flex; gap: 12px;">
-                <button id="clearChangePinBtn" class="action-btn">Clear</button>
-                <button id="deleteChangePinBtn" class="action-btn">⌫</button>
-            </div>
-        </div>
-        <div class="confirm-buttons">
-            <button id="cancelChangeBtn" class="action-btn">Cancel</button>
-            <button id="saveNewCodeBtn" class="action-btn" style="background:#e4bc78;">💾 Save</button>
-        </div>
-        <div id="changeFeedback" class="feedback-msg"></div>
-    </div>
-</div>
-
-<!-- Toast Message -->
-<div id="messageToast" class="message-toast"></div>
-
-<!-- Loading Popup -->
-<div id="loadingPopup" class="loading-popup">
-    <div class="loading-content">
-        <div id="loadingSpinner" class="spinner"></div>
-        <div id="loadingIcon" style="display: none;"></div>
-        <div class="loading-title" id="loadingTitle">Processing...</div>
-        <div class="loading-subtitle" id="loadingSubtitle">Please wait</div>
-    </div>
-</div>
-
-<script type="module" src="script/dutychange.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "./staff.js": "./script/staff.js"
+            }
+        }
+    </script>
+    <script type="module" src="script/dutychange.js"></script>
 </body>
 </html>
