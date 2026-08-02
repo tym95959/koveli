@@ -12,6 +12,8 @@ let staffLoaded = false;
 let isStaffLoading = false;
 let searchTimeout = null;
 let isDropdownOpen = false;
+let dropdownList = null;
+let searchInput = null;
 
 // ========== FIREBASE INITIALIZATION ==========
 function initFirebase() {
@@ -108,10 +110,15 @@ async function loadStaffFromFirebase(searchTerm = '') {
             });
         });
 
-        const filtered = allStaff.filter(s =>
-            s.name.toLowerCase().includes(term) ||
-            s.rcno.toString().includes(term)
-        );
+        // Filter by search term (name OR RC number - supports various formats)
+        const numericTerm = term.replace(/[^0-9]/g, '');
+        const filtered = allStaff.filter(s => {
+            const nameMatch = s.name.toLowerCase().includes(term);
+            const rcFullMatch = s.rcno.toString().toLowerCase().includes(term);
+            const rcNumericMatch = numericTerm.length > 0 && 
+                s.rcno.toString().toLowerCase().replace(/[^0-9]/g, '').includes(numericTerm);
+            return nameMatch || rcFullMatch || rcNumericMatch;
+        });
 
         staffData = filtered;
         staffLoaded = true;
@@ -977,8 +984,8 @@ async function saveNewCode() {
 
 // ========== SEARCHABLE DROPDOWN FUNCTIONS ==========
 function setupSearchableDropdown() {
-    const searchInput = document.getElementById('staffSearchInput');
-    const dropdownList = document.getElementById('staffDropdownList');
+    searchInput = document.getElementById('staffSearchInput');
+    dropdownList = document.getElementById('staffDropdownList');
     const hiddenSelect = document.getElementById('loginStaffSelect');
     const selectedDisplay = document.getElementById('selectedStaffDisplay');
     const selectedName = document.getElementById('selectedStaffName');
@@ -1012,10 +1019,10 @@ function setupSearchableDropdown() {
 
         // Show loading state
         dropdownList.innerHTML = `
-                <div class="loading-results">
-                    <span class="spinner-small"></span> Searching...
-                </div>
-            `;
+            <div class="loading-results">
+                <span class="spinner-small"></span> Searching by Name or RC...
+            </div>
+        `;
         dropdownList.classList.add('show');
         isDropdownOpen = true;
 
@@ -1065,26 +1072,30 @@ function setupSearchableDropdown() {
 
         if (isStaffLoading) {
             dropdownList.innerHTML = `
-                    <div class="loading-results">
-                        <span class="spinner-small"></span> Searching...
-                    </div>
-                `;
+                <div class="loading-results">
+                    <span class="spinner-small"></span> Searching...
+                </div>
+            `;
             return;
         }
 
         if (results.length === 0) {
             dropdownList.innerHTML = `
-                    <div class="no-results">No staff found matching "<strong>${searchTerm}</strong>"</div>
-                `;
+                <div class="no-results">No staff found matching "<strong>${searchTerm}</strong>"</div>
+            `;
             return;
         }
 
         const term = searchTerm.toLowerCase().trim();
+        const numericTerm = term.replace(/[^0-9]/g, '');
         let html = '';
 
         results.forEach(staff => {
             const nameMatch = staff.name.toLowerCase().includes(term);
-            const rcMatch = staff.rcno.toString().includes(term);
+            const rcFullMatch = staff.rcno.toString().toLowerCase().includes(term);
+            const rcNumericMatch = numericTerm.length > 0 && 
+                staff.rcno.toString().toLowerCase().replace(/[^0-9]/g, '').includes(numericTerm);
+            const rcMatch = rcFullMatch || rcNumericMatch;
 
             let displayName = staff.name;
             if (nameMatch) {
@@ -1094,14 +1105,31 @@ function setupSearchableDropdown() {
                     staff.name.substring(index + term.length);
             }
 
+            let displayRc = staff.rcno;
+            if (rcMatch && numericTerm.length > 0) {
+                const rcStr = staff.rcno.toString();
+                const rcLower = rcStr.toLowerCase();
+                const idx = rcLower.indexOf(numericTerm);
+                if (idx !== -1) {
+                    displayRc = rcStr.substring(0, idx) +
+                        `<span class="highlight">${rcStr.substring(idx, idx + numericTerm.length)}</span>` +
+                        rcStr.substring(idx + numericTerm.length);
+                }
+            }
+
             html += `
-                    <div class="dropdown-item" data-id="${staff.id}" data-name="${staff.name}" data-rc="${staff.rcno}" data-role="${staff.role}">
-                        ${displayName}
-                        <span class="rcno-hint">(RC: ${staff.rcno})</span>
-                        <span class="role-badge">${staff.role}</span>
-                        ${rcMatch ? ' 🔍' : ''}
+                <div class="dropdown-item" data-id="${staff.id}" data-name="${staff.name}" data-rc="${staff.rcno}" data-role="${staff.role}">
+                    <div class="item-row">
+                        <span>${displayName}</span>
+                        <span class="rc-display">${displayRc}</span>
                     </div>
-                `;
+                    <div class="item-meta">
+                        <span class="role-badge">${staff.role}</span>
+                        ${rcMatch ? '<span class="match-badge">✅ RC Match</span>' : ''}
+                        ${nameMatch ? '<span class="match-badge name">✅ Name Match</span>' : ''}
+                    </div>
+                </div>
+            `;
         });
 
         dropdownList.innerHTML = html;
@@ -1120,7 +1148,6 @@ function setupSearchableDropdown() {
                 searchInput.value = name;
             });
 
-            // Hover effect
             item.addEventListener('mouseenter', () => {
                 dropdownList.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
                 item.classList.add('active');
@@ -1246,34 +1273,34 @@ function updateRequestSummary() {
     }
 
     summaryDiv.innerHTML = `
-            <div style="background: #f8f1e0; padding: 12px; border-radius: 14px; margin-top: 8px; font-size:0.85rem;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
-                    <div style="border-right: 1px solid #e0d0b0; padding-right: 12px;">
-                        <div style="font-weight: 700; color: #b87c1a; font-size:0.8rem;">👤 Request</div>
-                        <div style="font-size:0.85rem;">${requestStaffName}</div>
-                        <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${requestStaffRcNo}</div>
-                        <div style="margin-top:2px;">
-                            <span class="duty-badge ${getDutyBadgeClass(requestDuty)}">${requestDuty}</span>
-                        </div>
-                    </div>
-                    <div>
-                        <div style="font-weight: 700; color: #2c6e2c; font-size:0.8rem;">🤝 Accept</div>
-                        <div style="font-size:0.85rem;">${acceptStaffName}</div>
-                        <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${acceptStaffRcNo}</div>
-                        <div style="margin-top:2px;">
-                            <span class="duty-badge ${getDutyBadgeClass(acceptDuty)}">${acceptDuty}</span>
-                        </div>
+        <div style="background: #f8f1e0; padding: 12px; border-radius: 14px; margin-top: 8px; font-size:0.85rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div style="border-right: 1px solid #e0d0b0; padding-right: 12px;">
+                    <div style="font-weight: 700; color: #b87c1a; font-size:0.8rem;">👤 Request</div>
+                    <div style="font-size:0.85rem;">${requestStaffName}</div>
+                    <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${requestStaffRcNo}</div>
+                    <div style="margin-top:2px;">
+                        <span class="duty-badge ${getDutyBadgeClass(requestDuty)}">${requestDuty}</span>
                     </div>
                 </div>
-                <div style="padding-top: 8px; border-top: 1px solid #e0d0b0;">
-                    <div style="font-weight: 600; font-size:0.85rem;">📅 ${swapDate}</div>
-                    ${reason ? `<div style="font-size:0.8rem; color: #7a5c1a;">📝 ${reason}</div>` : ''}
-                </div>
-                <div style="margin-top: 8px; padding: 6px; background: #fff8e0; border-radius: 8px; text-align: center; font-weight: 600; color: #b87c1a; font-size:0.8rem;">
-                    🔄 ${requestStaffName} ↔ ${acceptStaffName}
+                <div>
+                    <div style="font-weight: 700; color: #2c6e2c; font-size:0.8rem;">🤝 Accept</div>
+                    <div style="font-size:0.85rem;">${acceptStaffName}</div>
+                    <div style="font-size:0.75rem; color: #7a5c1a;">RC: ${acceptStaffRcNo}</div>
+                    <div style="margin-top:2px;">
+                        <span class="duty-badge ${getDutyBadgeClass(acceptDuty)}">${acceptDuty}</span>
+                    </div>
                 </div>
             </div>
-        `;
+            <div style="padding-top: 8px; border-top: 1px solid #e0d0b0;">
+                <div style="font-weight: 600; font-size:0.85rem;">📅 ${swapDate}</div>
+                ${reason ? `<div style="font-size:0.8rem; color: #7a5c1a;">📝 ${reason}</div>` : ''}
+            </div>
+            <div style="margin-top: 8px; padding: 6px; background: #fff8e0; border-radius: 8px; text-align: center; font-weight: 600; color: #b87c1a; font-size:0.8rem;">
+                🔄 ${requestStaffName} ↔ ${acceptStaffName}
+            </div>
+        </div>
+    `;
 }
 
 // ========== LOAD ALL DATA ==========
@@ -1425,30 +1452,30 @@ async function loadMyDutyRequests() {
     };
 
     container.innerHTML = currentPeriodRequests.map(r => `
-            <div class="request-item">
-                <div class="request-info">
-                    <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
-                    <div style="font-size:0.8rem; margin-top:2px;">
-                        👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
-                        <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
-                    </div>
-                    <div style="font-size:0.8rem;">
-                        🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
-                        <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
-                    </div>
-                    ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
-                    <div style="margin-top:2px;">
-                        Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
-                        ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
-                    </div>
+        <div class="request-item">
+            <div class="request-info">
+                <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
+                <div style="font-size:0.8rem; margin-top:2px;">
+                    👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
-                ${r.status === 'pending' ? `
-                    <div class="request-actions">
-                        <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">Cancel</button>
-                    </div>
-                ` : ''}
+                <div style="font-size:0.8rem;">
+                    🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                </div>
+                ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
+                <div style="margin-top:2px;">
+                    Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                    ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
+                </div>
             </div>
-        `).join('');
+            ${r.status === 'pending' ? `
+                <div class="request-actions">
+                    <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">Cancel</button>
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
 }
 
 // ========== RECEIVED REQUESTS ==========
@@ -1472,27 +1499,27 @@ async function loadReceivedRequests() {
     }
 
     container.innerHTML = currentPeriodRequests.map(r => `
-            <div class="request-item received">
-                <div class="request-info">
-                    <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
-                    <div style="font-size:0.8rem; margin-top:2px;">
-                        👤 From: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
-                        <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
-                    </div>
-                    <div style="font-size:0.8rem;">
-                        🤝 Your Duty: <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
-                    </div>
-                    ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
-                    <div style="margin-top:2px;">
-                        Status: <span class="badge badge-pending">⏳ Pending</span>
-                    </div>
+        <div class="request-item received">
+            <div class="request-info">
+                <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
+                <div style="font-size:0.8rem; margin-top:2px;">
+                    👤 From: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
-                <div class="request-actions">
-                    <button class="btn-accept" onclick="window.acceptSwapRequest('${r.id}')">✅ Accept</button>
-                    <button class="btn-danger" onclick="window.rejectSwapRequest('${r.id}')">❌ Reject</button>
+                <div style="font-size:0.8rem;">
+                    🤝 Your Duty: <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                </div>
+                ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
+                <div style="margin-top:2px;">
+                    Status: <span class="badge badge-pending">⏳ Pending</span>
                 </div>
             </div>
-        `).join('');
+            <div class="request-actions">
+                <button class="btn-accept" onclick="window.acceptSwapRequest('${r.id}')">✅ Accept</button>
+                <button class="btn-danger" onclick="window.rejectSwapRequest('${r.id}')">❌ Reject</button>
+            </div>
+        </div>
+    `).join('');
 }
 
 // ========== ADMIN REQUESTS ==========
@@ -1521,28 +1548,28 @@ async function loadAdminRequests() {
     };
 
     container.innerHTML = currentPeriodRequests.map(r => `
-            <div class="request-item admin">
-                <div class="request-info">
-                    <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
-                    <div style="font-size:0.8rem; margin-top:2px;">
-                        👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
-                        <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
-                    </div>
-                    <div style="font-size:0.8rem;">
-                        🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
-                        <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
-                    </div>
-                    ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
-                    <div style="margin-top:2px;">
-                        Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
-                        ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
-                    </div>
+        <div class="request-item admin">
+            <div class="request-info">
+                <div style="font-size:0.8rem;"><strong>📅 ${r.swapDate}</strong></div>
+                <div style="font-size:0.8rem; margin-top:2px;">
+                    👤 ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
-                <div class="request-actions">
-                    <button class="btn-danger" onclick="window.deleteDutyRequest('${r.id}')">🗑️</button>
+                <div style="font-size:0.8rem;">
+                    🤝 ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                </div>
+                ${r.reason ? `<div style="font-size:0.75rem; color:#7a5c1a;">📝 ${r.reason}</div>` : ''}
+                <div style="margin-top:2px;">
+                    Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                    ${r.isOffDutySwap ? ' <span style="font-size:0.6rem; color:#b8860b;">(Off Duty)</span>' : ''}
                 </div>
             </div>
-        `).join('');
+            <div class="request-actions">
+                <button class="btn-danger" onclick="window.deleteDutyRequest('${r.id}')">🗑️</button>
+            </div>
+        </div>
+    `).join('');
 }
 
 // ========== LOGOUT FUNCTION ==========
@@ -1567,7 +1594,6 @@ function logoutUser() {
     document.getElementById('profileMenu').classList.remove('show');
 
     // Reset search dropdown
-    const searchInput = document.getElementById('staffSearchInput');
     if (searchInput) {
         searchInput.value = '';
     }
@@ -1575,7 +1601,6 @@ function logoutUser() {
     if (selectedDisplay) {
         selectedDisplay.style.display = 'none';
     }
-    const dropdownList = document.getElementById('staffDropdownList');
     if (dropdownList) {
         dropdownList.classList.remove('show');
     }
@@ -1763,7 +1788,6 @@ async function initApp() {
             document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
 
             // Set search input and selected display
-            const searchInput = document.getElementById('staffSearchInput');
             if (searchInput) {
                 searchInput.value = staff.name;
             }
@@ -1804,7 +1828,6 @@ async function initApp() {
             if (!result?.success) {
                 if (currentLoggedInStaff) {
                     // Revert selection
-                    const searchInput = document.getElementById('staffSearchInput');
                     if (searchInput) {
                         searchInput.value = currentLoggedInStaff.name;
                     }
