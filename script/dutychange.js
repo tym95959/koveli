@@ -124,7 +124,7 @@ async function saveDutyChangeRequest(request) {
         const docId = `${request.requesterId}_${request.swapDate}_${Date.now()}`;
         await db.collection('dutyChanges').doc(docId).set({
             ...request,
-            status: 'pending_accept',
+            status: 'pending',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         console.log('✅ Request saved:', request);
@@ -205,7 +205,7 @@ function getRequestLimitInfo(staffId, allRequests) {
         if (r.status === 'approved') {
             approvedCount++;
             usedCount++;
-        } else if (r.status === 'pending_accept' || r.status === 'pending_approval') {
+        } else if (r.status === 'pending') {
             pendingCount++;
             usedCount++;
         }
@@ -702,7 +702,6 @@ async function loadAllData() {
     
     await loadMyDutyRequests();
     await loadReceivedRequests();
-    await loadAllDutyRequests();
     updateRequestSummary();
 }
 
@@ -779,7 +778,7 @@ async function submitDutyChange() {
         requesterId: currentLoggedInStaff.id,
         swapDate: swapDate
     });
-    const hasPending = existing.some(r => r.status === 'pending_accept' || r.status === 'pending_approval');
+    const hasPending = existing.some(r => r.status === 'pending');
     if (hasPending) {
         showTemporaryFeedback('⚠️ You already have a pending swap request for this date', true);
         return;
@@ -796,7 +795,7 @@ async function submitDutyChange() {
         acceptStaffDuty: acceptDuty,
         swapDate: swapDate,
         reason: reason || '',
-        status: 'pending_accept',
+        status: 'pending',
         isOffDutySwap: isOffDutySwap
     };
     
@@ -831,8 +830,7 @@ async function loadMyDutyRequests() {
     }
     
     const statusMap = {
-        'pending_accept': '⏳ Pending Accept',
-        'pending_approval': '⏳ Pending Approval',
+        'pending': '⏳ Pending',
         'approved': '✅ Approved',
         'rejected': '❌ Rejected'
     };
@@ -851,11 +849,11 @@ async function loadMyDutyRequests() {
                 </div>
                 ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
                 <div style="margin-top: 4px;">
-                    Status: <span class="badge badge-${r.status === 'pending_accept' || r.status === 'pending_approval' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                    Status: <span class="badge badge-${r.status === 'pending' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
                     ${r.isOffDutySwap ? ' <span style="font-size: 0.7rem; color: #b8860b;">(Off Duty swap - no limit)</span>' : ''}
                 </div>
             </div>
-            ${r.status === 'pending_accept' || r.status === 'pending_approval' ? `
+            ${r.status === 'pending' ? `
                 <div class="request-actions">
                     <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">❌ Cancel</button>
                 </div>
@@ -864,7 +862,7 @@ async function loadMyDutyRequests() {
     `).join('');
 }
 
-// ========== RECEIVED REQUESTS - ONLY FOR ACCEPT STAFF ==========
+// ========== RECEIVED REQUESTS - ACCEPT STAFF CAN ACCEPT/REJECT ==========
 async function loadReceivedRequests() {
     const container = document.getElementById('receivedRequestsList');
     if (!currentLoggedInStaff) {
@@ -872,10 +870,10 @@ async function loadReceivedRequests() {
         return;
     }
     
-    // Get ALL pending_accept requests where this staff is the accept staff
+    // Get ALL pending requests where this staff is the accept staff
     const allRequests = await loadDutyChangeRequests({ 
         acceptStaffId: currentLoggedInStaff.id,
-        status: 'pending_accept'
+        status: 'pending'
     });
     
     // Filter for current period
@@ -912,67 +910,6 @@ async function loadReceivedRequests() {
     `).join('');
 }
 
-// ========== SUPERVISOR ALL REQUESTS - ONLY FOR SUPERVISORS ==========
-async function loadAllDutyRequests() {
-    const container = document.getElementById('allDutyRequestsList');
-    const section = document.getElementById('supervisorSection');
-    
-    // ONLY show if logged in user is Supervisor
-    if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
-        section.style.display = 'none';
-        return;
-    }
-    
-    section.style.display = 'block';
-    const allRequests = await loadDutyChangeRequests({});
-    const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
-    
-    if (currentPeriodRequests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No swap requests for current period</div>';
-        return;
-    }
-    
-    const statusMap = {
-        'pending_accept': '⏳ Pending Accept',
-        'pending_approval': '⏳ Pending Approval',
-        'approved': '✅ Approved',
-        'rejected': '❌ Rejected'
-    };
-    
-    currentPeriodRequests.sort((a, b) => {
-        const order = { 'pending_accept': 0, 'pending_approval': 1, 'approved': 2, 'rejected': 3 };
-        return (order[a.status] || 99) - (order[b.status] || 99);
-    });
-    
-    container.innerHTML = currentPeriodRequests.map(r => `
-        <div class="request-item">
-            <div class="request-info">
-                <div><strong>📅 ${r.swapDate}</strong></div>
-                <div style="font-size: 0.85rem; margin-top: 4px;">
-                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
-                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
-                </div>
-                <div style="font-size: 0.85rem;">
-                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
-                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
-                </div>
-                ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
-                <div style="margin-top: 4px;">
-                    Status: <span class="badge badge-${r.status === 'pending_accept' || r.status === 'pending_approval' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
-                    ${r.isOffDutySwap ? ' <span style="font-size: 0.7rem; color: #b8860b;">(Off Duty swap)</span>' : ''}
-                </div>
-            </div>
-            <div class="request-actions">
-                ${r.status === 'pending_approval' ? `
-                    <button class="btn-primary" style="padding:6px 16px;font-size:0.8rem;" onclick="window.approveDutyRequest('${r.id}')">✅ Approve</button>
-                    <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="window.rejectDutyRequest('${r.id}')">❌ Reject</button>
-                ` : ''}
-                <button class="btn-secondary" style="padding:4px 12px;font-size:0.7rem;background:#e5e7eb;" onclick="window.deleteDutyRequest('${r.id}')">🗑️</button>
-            </div>
-        </div>
-    `).join('');
-}
-
 // ========== GLOBAL FUNCTIONS ==========
 window.cancelDutyRequest = async function(id) {
     if (!confirm('Cancel this swap request?')) return;
@@ -983,7 +920,7 @@ window.cancelDutyRequest = async function(id) {
     }
 };
 
-// ONLY Accept Staff can Accept/Reject
+// Accept Staff can Accept/Reject
 window.acceptSwapRequest = async function(id) {
     // Verify the logged-in user is the accept staff
     const request = allRequestsCache.find(r => r.id === id);
@@ -996,10 +933,10 @@ window.acceptSwapRequest = async function(id) {
         return;
     }
     
-    if (!confirm('Accept this swap request? It will be sent to supervisor for final approval.')) return;
-    const ok = await updateDutyChangeStatus(id, 'pending_approval');
+    if (!confirm('Accept this swap request?')) return;
+    const ok = await updateDutyChangeStatus(id, 'approved');
     if (ok) {
-        showTemporaryFeedback('✅ Swap request accepted! Waiting for supervisor approval.');
+        showTemporaryFeedback('✅ Swap request accepted!');
         await loadAllData();
     }
 };
@@ -1017,31 +954,6 @@ window.rejectSwapRequest = async function(id) {
     }
     
     if (!confirm('Reject this swap request?')) return;
-    const ok = await updateDutyChangeStatus(id, 'rejected');
-    if (ok) {
-        showTemporaryFeedback('❌ Swap request rejected');
-        await loadAllData();
-    }
-};
-
-// Supervisors Approve/Reject
-window.approveDutyRequest = async function(id) {
-    if (currentLoggedInStaff?.role !== 'Supervisor') {
-        showTemporaryFeedback('❌ Only supervisors can approve requests', true);
-        return;
-    }
-    const ok = await updateDutyChangeStatus(id, 'approved');
-    if (ok) {
-        showTemporaryFeedback('✅ Swap request approved');
-        await loadAllData();
-    }
-};
-
-window.rejectDutyRequest = async function(id) {
-    if (currentLoggedInStaff?.role !== 'Supervisor') {
-        showTemporaryFeedback('❌ Only supervisors can reject requests', true);
-        return;
-    }
     const ok = await updateDutyChangeStatus(id, 'rejected');
     if (ok) {
         showTemporaryFeedback('❌ Swap request rejected');
@@ -1102,11 +1014,8 @@ async function initApp() {
                 document.getElementById('requestStaffRcNo').value = '';
                 document.getElementById('submitDutyChangeBtn').disabled = true;
                 document.getElementById('requestLimitDisplay').style.display = 'none';
-                // Clear all lists
                 document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
                 document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
-                document.getElementById('allDutyRequestsList').innerHTML = '<div class="empty-state">No requests pending</div>';
-                document.getElementById('supervisorSection').style.display = 'none';
                 updateRequestSummary();
             }
             return;
@@ -1205,11 +1114,8 @@ async function initApp() {
     if (currentLoggedInStaff) {
         await loadAllData();
     } else {
-        // Show empty states
         document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
         document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
-        document.getElementById('allDutyRequestsList').innerHTML = '<div class="empty-state">No requests pending</div>';
-        document.getElementById('supervisorSection').style.display = 'none';
         updateRequestSummary();
     }
     
