@@ -88,7 +88,7 @@ async function saveDutyChangeRequest(request) {
         const docId = `${request.requesterId}_${request.swapDate}_${Date.now()}`;
         await db.collection('dutyChanges').doc(docId).set({
             ...request,
-            status: 'pending',
+            status: 'pending_accept', // pending_accept, pending_approval, approved, rejected
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         return true;
@@ -103,6 +103,7 @@ async function loadDutyChangeRequests(filters = {}) {
     try {
         let q = db.collection('dutyChanges');
         if (filters.requesterId) q = q.where('requesterId', '==', filters.requesterId);
+        if (filters.acceptStaffId) q = q.where('acceptStaffId', '==', filters.acceptStaffId);
         if (filters.status) q = q.where('status', '==', filters.status);
         if (filters.swapDate) q = q.where('swapDate', '==', filters.swapDate);
         
@@ -122,7 +123,7 @@ async function updateDutyChangeStatus(requestId, status) {
         await db.collection('dutyChanges').doc(requestId).update({
             status: status,
             reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            reviewedBy: currentLoggedInStaff?.name || 'Supervisor'
+            reviewedBy: currentLoggedInStaff?.name || 'System'
         });
         return true;
     } catch(e) {
@@ -140,6 +141,55 @@ async function deleteDutyChange(requestId) {
         console.error('Delete error:', e);
         return false;
     }
+}
+
+// ========== REQUEST LIMIT CHECKS ==========
+function getMonthHalf(dateStr) {
+    if (!dateStr) return 'first';
+    const day = parseInt(dateStr.split('-')[2]);
+    return day <= 15 ? 'first' : 'second';
+}
+
+function isOffDuty(duty) {
+    return duty && duty.includes('Off Duty');
+}
+
+function getRequestLimitInfo(staffId, allRequests) {
+    const staffRequests = allRequests.filter(r => r.requesterId === staffId);
+    
+    // Count only duty changes (exclude Off Duty swaps)
+    const dutyChangeRequests = staffRequests.filter(r => 
+        !isOffDuty(r.requesterDuty) && !isOffDuty(r.acceptStaffDuty)
+    );
+    
+    // Count by month half
+    let firstHalfUsed = 0;
+    let secondHalfUsed = 0;
+    let pendingCount = 0;
+    let approvedCount = 0;
+    
+    dutyChangeRequests.forEach(r => {
+        const half = getMonthHalf(r.swapDate);
+        if (r.status === 'approved') {
+            approvedCount++;
+            if (half === 'first') firstHalfUsed++;
+            else secondHalfUsed++;
+        } else if (r.status === 'pending_accept' || r.status === 'pending_approval') {
+            pendingCount++;
+            if (half === 'first') firstHalfUsed++;
+            else secondHalfUsed++;
+        }
+    });
+    
+    return {
+        firstHalfUsed,
+        secondHalfUsed,
+        pendingCount,
+        approvedCount,
+        canRequest: (half) => {
+            return half === 'first' ? firstHalfUsed < 2 : secondHalfUsed < 2;
+        }
+    };
 }
 
 // ========== AUTH SYSTEM ==========
@@ -316,8 +366,7 @@ async function attemptAutoVerify(source) {
         document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
         
         populateDutyForm(staff);
-        await loadMyDutyRequests();
-        await loadAllDutyRequests();
+        await loadAllData();
         
         showTemporaryFeedback(`✅ Welcome ${staff.name}! (RC: ${staff.rcno})`);
     } else {
@@ -525,6 +574,8 @@ async function saveNewCode() {
 }
 
 // ========== DUTY CHANGE UI ==========
+let allRequestsCache = [];
+
 function populateDutyForm(staff) {
     document.getElementById('requestStaffName').value = staff.name;
     document.getElementById('requestStaffRcNo').value = staff.rcno || '';
@@ -532,7 +583,6 @@ function populateDutyForm(staff) {
     const dateInput = document.getElementById('swapDate');
     if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
     
-    // Populate accept staff dropdown
     const acceptSelect = document.getElementById('dutyAcceptStaff');
     if (acceptSelect) {
         const currentVal = acceptSelect.value;
@@ -625,6 +675,59 @@ function updateRequestSummary() {
     `;
 }
 
+// ========== LOAD ALL DATA ==========
+async function loadAllData() {
+    if (!currentLoggedInStaff) return;
+    
+    // Load all requests
+    allRequestsCache = await loadDutyChangeRequests({});
+    
+    // Update limit display
+    updateRequestLimitDisplay();
+    
+    // Load all lists
+    await loadMyDutyRequests();
+    await loadReceivedRequests();
+    await loadAllDutyRequests();
+    updateRequestSummary();
+}
+
+function updateRequestLimitDisplay() {
+    if (!currentLoggedInStaff) {
+        document.getElementById('requestLimitDisplay').style.display = 'none';
+        return;
+    }
+    
+    const info = getRequestLimitInfo(currentLoggedInStaff.id, allRequestsCache);
+    document.getElementById('requestLimitDisplay').style.display = 'block';
+    document.getElementById('firstHalfUsed').textContent = info.firstHalfUsed;
+    document.getElementById('secondHalfUsed').textContent = info.secondHalfUsed;
+    document.getElementById('pendingCount').textContent = info.pendingCount;
+    document.getElementById('approvedCount').textContent = info.approvedCount;
+    
+    // Check if can request for current date
+    const swapDate = document.getElementById('swapDate').value;
+    if (swapDate) {
+        const half = getMonthHalf(swapDate);
+        const canRequest = info.canRequest(half);
+        const submitBtn = document.getElementById('submitDutyChangeBtn');
+        const warning = document.getElementById('requestLimitWarning');
+        
+        if (!canRequest) {
+            submitBtn.disabled = true;
+            warning.style.display = 'block';
+            warning.textContent = `⚠️ You have already used 2 duty changes for ${half === 'first' ? '1-15' : '16-31'} of this month.`;
+        } else {
+            submitBtn.disabled = false;
+            warning.style.display = 'none';
+        }
+    }
+}
+
+function isOffDuty(duty) {
+    return duty && duty.includes('Off Duty');
+}
+
 async function submitDutyChange() {
     if (!currentLoggedInStaff) {
         showTemporaryFeedback('⚠️ Please login first', true);
@@ -649,12 +752,25 @@ async function submitDutyChange() {
         return; 
     }
     
+    // Check if Off Duty swap - these don't count towards limit
+    const isOffDutySwap = isOffDuty(requestDuty) || isOffDuty(acceptDuty);
+    
+    // Check request limit (only for duty changes, not Off Duty)
+    if (!isOffDutySwap) {
+        const info = getRequestLimitInfo(currentLoggedInStaff.id, allRequestsCache);
+        const half = getMonthHalf(swapDate);
+        if (!info.canRequest(half)) {
+            showTemporaryFeedback(`⚠️ You have already used 2 duty changes for ${half === 'first' ? '1-15' : '16-31'} of this month`, true);
+            return;
+        }
+    }
+    
     // Check if request already exists for this date
     const existing = await loadDutyChangeRequests({ 
         requesterId: currentLoggedInStaff.id,
         swapDate: swapDate
     });
-    const hasPending = existing.some(r => r.status === 'pending');
+    const hasPending = existing.some(r => r.status === 'pending_accept' || r.status === 'pending_approval');
     if (hasPending) {
         showTemporaryFeedback('⚠️ You already have a pending swap request for this date', true);
         return;
@@ -671,20 +787,19 @@ async function submitDutyChange() {
         acceptStaffDuty: acceptDuty,
         swapDate: swapDate,
         reason: reason || '',
-        status: 'pending'
+        status: 'pending_accept',
+        isOffDutySwap: isOffDutySwap
     };
     
     const ok = await saveDutyChangeRequest(request);
     if (ok) {
-        showTemporaryFeedback('✅ Duty swap request submitted!');
+        showTemporaryFeedback('✅ Duty swap request submitted! Waiting for staff acceptance.');
         document.getElementById('dutyAcceptStaff').value = '';
         document.getElementById('acceptStaffName').value = '';
         document.getElementById('acceptStaffRcNo').value = '';
         document.getElementById('acceptCurrentDuty').value = '';
         document.getElementById('swapReason').value = '';
-        await loadMyDutyRequests();
-        await loadAllDutyRequests();
-        updateRequestSummary();
+        await loadAllData();
     } else {
         showTemporaryFeedback('❌ Failed to submit request', true);
     }
@@ -703,6 +818,13 @@ async function loadMyDutyRequests() {
         return;
     }
     
+    const statusMap = {
+        'pending_accept': '⏳ Pending Accept',
+        'pending_approval': '⏳ Pending Approval',
+        'approved': '✅ Approved',
+        'rejected': '❌ Rejected'
+    };
+    
     container.innerHTML = requests.map(r => `
         <div class="request-item">
             <div class="request-info">
@@ -717,14 +839,56 @@ async function loadMyDutyRequests() {
                 </div>
                 ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
                 <div style="margin-top: 4px;">
-                    Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
+                    Status: <span class="badge badge-${r.status === 'pending_accept' || r.status === 'pending_approval' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                    ${r.isOffDutySwap ? ' <span style="font-size: 0.7rem; color: #b8860b;">(Off Duty swap - no limit)</span>' : ''}
                 </div>
             </div>
-            ${r.status === 'pending' ? `
+            ${r.status === 'pending_accept' || r.status === 'pending_approval' ? `
                 <div class="request-actions">
                     <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">❌ Cancel</button>
                 </div>
             ` : ''}
+        </div>
+    `).join('');
+}
+
+async function loadReceivedRequests() {
+    const container = document.getElementById('receivedRequestsList');
+    if (!currentLoggedInStaff) {
+        container.innerHTML = '<div class="empty-state">Login to see requests</div>';
+        return;
+    }
+    
+    const requests = await loadDutyChangeRequests({ 
+        acceptStaffId: currentLoggedInStaff.id,
+        status: 'pending_accept'
+    });
+    
+    if (requests.length === 0) {
+        container.innerHTML = '<div class="empty-state">No pending requests received</div>';
+        return;
+    }
+    
+    container.innerHTML = requests.map(r => `
+        <div class="request-item" style="border-left: 4px solid #e4bc78;">
+            <div class="request-info">
+                <div><strong>📅 ${r.swapDate}</strong></div>
+                <div style="font-size: 0.85rem; margin-top: 4px;">
+                    👤 From: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
+                </div>
+                <div style="font-size: 0.85rem;">
+                    🤝 Your Duty: <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
+                </div>
+                ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
+                <div style="margin-top: 4px;">
+                    Status: <span class="badge badge-pending">⏳ Pending Your Response</span>
+                </div>
+            </div>
+            <div class="request-actions">
+                <button class="btn-primary" style="padding:6px 16px;font-size:0.8rem;" onclick="window.acceptSwapRequest('${r.id}')">✅ Accept</button>
+                <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="window.rejectSwapRequest('${r.id}')">❌ Reject</button>
+            </div>
         </div>
     `).join('');
 }
@@ -746,10 +910,16 @@ async function loadAllDutyRequests() {
         return;
     }
     
+    const statusMap = {
+        'pending_accept': '⏳ Pending Accept',
+        'pending_approval': '⏳ Pending Approval',
+        'approved': '✅ Approved',
+        'rejected': '❌ Rejected'
+    };
+    
     requests.sort((a, b) => {
-        if (a.status === 'pending' && b.status !== 'pending') return -1;
-        if (b.status === 'pending' && a.status !== 'pending') return 1;
-        return 0;
+        const order = { 'pending_accept': 0, 'pending_approval': 1, 'approved': 2, 'rejected': 3 };
+        return (order[a.status] || 99) - (order[b.status] || 99);
     });
     
     container.innerHTML = requests.map(r => `
@@ -766,11 +936,12 @@ async function loadAllDutyRequests() {
                 </div>
                 ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
                 <div style="margin-top: 4px;">
-                    Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
+                    Status: <span class="badge badge-${r.status === 'pending_accept' || r.status === 'pending_approval' ? 'pending' : r.status}">${statusMap[r.status] || r.status}</span>
+                    ${r.isOffDutySwap ? ' <span style="font-size: 0.7rem; color: #b8860b;">(Off Duty swap)</span>' : ''}
                 </div>
             </div>
             <div class="request-actions">
-                ${r.status === 'pending' ? `
+                ${r.status === 'pending_approval' ? `
                     <button class="btn-primary" style="padding:6px 16px;font-size:0.8rem;" onclick="window.approveDutyRequest('${r.id}')">✅ Approve</button>
                     <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="window.rejectDutyRequest('${r.id}')">❌ Reject</button>
                 ` : ''}
@@ -786,8 +957,25 @@ window.cancelDutyRequest = async function(id) {
     const ok = await deleteDutyChange(id);
     if (ok) {
         showTemporaryFeedback('Request cancelled');
-        await loadMyDutyRequests();
-        await loadAllDutyRequests();
+        await loadAllData();
+    }
+};
+
+window.acceptSwapRequest = async function(id) {
+    if (!confirm('Accept this swap request? It will be sent to supervisor for final approval.')) return;
+    const ok = await updateDutyChangeStatus(id, 'pending_approval');
+    if (ok) {
+        showTemporaryFeedback('✅ Swap request accepted! Waiting for supervisor approval.');
+        await loadAllData();
+    }
+};
+
+window.rejectSwapRequest = async function(id) {
+    if (!confirm('Reject this swap request?')) return;
+    const ok = await updateDutyChangeStatus(id, 'rejected');
+    if (ok) {
+        showTemporaryFeedback('❌ Swap request rejected');
+        await loadAllData();
     }
 };
 
@@ -795,8 +983,7 @@ window.approveDutyRequest = async function(id) {
     const ok = await updateDutyChangeStatus(id, 'approved');
     if (ok) {
         showTemporaryFeedback('✅ Swap request approved');
-        await loadAllDutyRequests();
-        await loadMyDutyRequests();
+        await loadAllData();
     }
 };
 
@@ -804,8 +991,7 @@ window.rejectDutyRequest = async function(id) {
     const ok = await updateDutyChangeStatus(id, 'rejected');
     if (ok) {
         showTemporaryFeedback('❌ Swap request rejected');
-        await loadAllDutyRequests();
-        await loadMyDutyRequests();
+        await loadAllData();
     }
 };
 
@@ -814,8 +1000,7 @@ window.deleteDutyRequest = async function(id) {
     const ok = await deleteDutyChange(id);
     if (ok) {
         showTemporaryFeedback('Request deleted');
-        await loadAllDutyRequests();
-        await loadMyDutyRequests();
+        await loadAllData();
     }
 };
 
@@ -862,7 +1047,9 @@ async function initApp() {
                 document.getElementById('requestStaffName').value = '';
                 document.getElementById('requestStaffRcNo').value = '';
                 document.getElementById('submitDutyChangeBtn').disabled = true;
+                document.getElementById('requestLimitDisplay').style.display = 'none';
                 loadMyDutyRequests();
+                loadReceivedRequests();
                 loadAllDutyRequests();
                 updateRequestSummary();
             }
@@ -884,7 +1071,10 @@ async function initApp() {
     
     document.getElementById('requestCurrentDuty').addEventListener('change', updateRequestSummary);
     document.getElementById('acceptCurrentDuty').addEventListener('change', updateRequestSummary);
-    document.getElementById('swapDate').addEventListener('change', updateRequestSummary);
+    document.getElementById('swapDate').addEventListener('change', () => {
+        updateRequestSummary();
+        updateRequestLimitDisplay();
+    });
     document.getElementById('swapReason').addEventListener('input', updateRequestSummary);
     
     document.getElementById('submitDutyChangeBtn').addEventListener('click', submitDutyChange);
@@ -956,6 +1146,7 @@ async function initApp() {
     };
     
     loadMyDutyRequests();
+    loadReceivedRequests();
     loadAllDutyRequests();
     updateRequestSummary();
     
