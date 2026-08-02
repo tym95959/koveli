@@ -310,41 +310,41 @@ async function sendSwapEmail(swapData) {
     try {
         // Build email body
         const emailBody = `
-╔═══════════════════════════════════════════════════════════════════╗
-║                         DUTY CHANGE                              ║
-╚═══════════════════════════════════════════════════════════════════╝
 
-📅 SWAP DATE : ${swapData.swapDate}
+                         DUTY CHANGE                              
+
+
+📅 DUTY CHANGE DATE : ${swapData.swapDate}
 🔄 STATUS    : ✅ ACCEPTED
 
 ┌───────────────────────────────────────────────────────────────┐
-│  REQUEST STAFF                                               │
-├───────────────────────────────────────────────────────────────┤
-│  Name           : ${swapData.requesterName}                  │
-│  RC No          : ${swapData.requesterRcNo}                 │
-│  Role           : ${swapData.requesterRole}                 │
-│  Current Duty   : ${swapData.requesterDuty}                 │
-│  Changed To     : ${swapData.acceptStaffDuty}               │
-└───────────────────────────────────────────────────────────────┘
+  REQUEST STAFF                                               
+
+  Name           : ${swapData.requesterName}                  
+  RC No          : ${swapData.requesterRcNo}                 
+  Role           : ${swapData.requesterRole}                 
+  Current Duty   : ${swapData.requesterDuty}                 
+  Changed To     : ${swapData.acceptStaffDuty}               
+
 
 ┌───────────────────────────────────────────────────────────────┐
-│  ACCEPT STAFF                                                │
-├───────────────────────────────────────────────────────────────┤
-│  Name           : ${swapData.acceptStaffName}                │
-│  RC No          : ${swapData.acceptStaffRcNo}               │
-│  Role           : ${swapData.acceptStaffRole}               │
-│  Current Duty   : ${swapData.acceptStaffDuty}               │
-│  Changed To     : ${swapData.requesterDuty}                 │
-└───────────────────────────────────────────────────────────────┘
+  ACCEPT STAFF                                                
+
+  Name           : ${swapData.acceptStaffName}                
+  RC No          : ${swapData.acceptStaffRcNo}               
+  Role           : ${swapData.acceptStaffRole}               
+  Current Duty   : ${swapData.acceptStaffDuty}               
+  Changed To     : ${swapData.requesterDuty}                 
+
 
 🔄 SWAP SUMMARY:
-   ${swapData.requesterName} (${swapData.requesterDuty}) ↔ ${swapData.acceptStaffName} (${swapData.acceptStaffDuty})
+   ${swapData.requesterName} (${swapData.requesterDuty}) ↔ ${swapData.acceptStaffName} (${swapData.acceptStaffDuty}) ON ${swapData.swapDate}
 
 ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
 
-╔═══════════════════════════════════════════════════════════════════╗
-║        This is an automated notification from Duty Change System  ║
-╚═══════════════════════════════════════════════════════════════════╝
+
+        This is an automated notification from Duty Change System  
+
         `;
 
         // Get all recipients
