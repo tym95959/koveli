@@ -685,6 +685,112 @@ input[readonly] {
     flex-wrap: wrap;
 }
 
+/* Loading Popup */
+.loading-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0.3s, opacity 0.3s;
+}
+
+.loading-popup.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+.loading-popup .loading-content {
+    background: #fffcf0;
+    border-radius: 48px;
+    padding: 40px 30px;
+    max-width: 450px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 25px 40px -12px rgba(120, 80, 20, 0.5);
+}
+
+.loading-popup .spinner {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 20px;
+    border: 4px solid #f0e2be;
+    border-top: 4px solid #e4bc78;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-popup .loading-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #b87c1a;
+    margin-bottom: 10px;
+}
+
+.loading-popup .loading-subtitle {
+    font-size: 0.95rem;
+    color: #7a5c1a;
+    white-space: pre-line;
+}
+
+.loading-popup .success-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    animation: popIn 0.5s ease;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); }
+    70% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.loading-popup .checkmark {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: #2c6e2c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    animation: popIn 0.5s ease;
+}
+
+.loading-popup .btn-close-popup {
+    background: #e4bc78;
+    color: #5c3e0e;
+    border: none;
+    border-radius: 40px;
+    padding: 10px 30px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: 0.2s;
+    width: 100%;
+    font-size: 1rem;
+}
+
+.loading-popup .btn-close-popup:hover {
+    background: #d4aa5a;
+    transform: scale(1.02);
+}
+
 @media (max-width: 650px) {
     .app-card {
         padding: 15px;
