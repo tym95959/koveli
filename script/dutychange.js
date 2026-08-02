@@ -3,6 +3,7 @@ import { staffList } from './staff.js';
 // ========== FIREBASE ==========
 let db = null;
 let firebaseConnected = false;
+let allRequestsCache = [];
 
 function initFirebase() {
     if (typeof firebase !== 'undefined' && firebase.firestore) {
@@ -92,6 +93,12 @@ function getMonthHalf(dateStr) {
     return day <= 15 ? 'first' : 'second';
 }
 
+function getCurrentMonthHalf() {
+    const today = new Date();
+    const day = today.getDate();
+    return day <= 15 ? 'first' : 'second';
+}
+
 function getDutyBadgeClass(duty) {
     if (!duty) return '';
     if (duty.includes('Morning 1')) return 'duty-morning1';
@@ -101,6 +108,13 @@ function getDutyBadgeClass(duty) {
     if (duty.includes('Night')) return 'duty-night';
     if (duty.includes('Off')) return 'duty-off';
     return '';
+}
+
+function isCurrentPeriod(dateStr) {
+    if (!dateStr) return false;
+    const requestHalf = getMonthHalf(dateStr);
+    const currentHalf = getCurrentMonthHalf();
+    return requestHalf === currentHalf;
 }
 
 // ========== DUTY CHANGE FIRESTORE ==========
@@ -134,7 +148,6 @@ async function loadDutyChangeRequests(filters = {}) {
         const results = [];
         snap.forEach(doc => {
             const data = doc.data();
-            console.log('📄 Loaded request:', data.requesterName, '->', data.acceptStaffName, 'Status:', data.status);
             results.push({ id: doc.id, ...data });
         });
         return results;
@@ -173,38 +186,38 @@ async function deleteDutyChange(requestId) {
 
 // ========== REQUEST LIMIT CHECKS ==========
 function getRequestLimitInfo(staffId, allRequests) {
-    const staffRequests = allRequests.filter(r => r.requesterId === staffId);
+    const currentHalf = getCurrentMonthHalf();
     
-    const dutyChangeRequests = staffRequests.filter(r => 
+    // Filter requests for current period only
+    const currentPeriodRequests = allRequests.filter(r => 
+        r.requesterId === staffId && 
+        isCurrentPeriod(r.swapDate)
+    );
+    
+    // Count only duty changes (exclude Off Duty swaps)
+    const dutyChangeRequests = currentPeriodRequests.filter(r => 
         !isOffDuty(r.requesterDuty) && !isOffDuty(r.acceptStaffDuty)
     );
     
-    let firstHalfUsed = 0;
-    let secondHalfUsed = 0;
+    let usedCount = 0;
     let pendingCount = 0;
     let approvedCount = 0;
     
     dutyChangeRequests.forEach(r => {
-        const half = getMonthHalf(r.swapDate);
         if (r.status === 'approved') {
             approvedCount++;
-            if (half === 'first') firstHalfUsed++;
-            else secondHalfUsed++;
+            usedCount++;
         } else if (r.status === 'pending_accept' || r.status === 'pending_approval') {
             pendingCount++;
-            if (half === 'first') firstHalfUsed++;
-            else secondHalfUsed++;
+            usedCount++;
         }
     });
     
     return {
-        firstHalfUsed,
-        secondHalfUsed,
+        usedCount,
         pendingCount,
         approvedCount,
-        canRequest: (half) => {
-            return half === 'first' ? firstHalfUsed < 2 : secondHalfUsed < 2;
-        }
+        canRequest: usedCount < 2
     };
 }
 
@@ -589,8 +602,6 @@ async function saveNewCode() {
 }
 
 // ========== DUTY CHANGE UI ==========
-let allRequestsCache = [];
-
 function populateDutyForm(staff) {
     document.getElementById('requestStaffName').value = staff.name;
     document.getElementById('requestStaffRcNo').value = staff.rcno || '';
@@ -683,11 +694,16 @@ function updateRequestSummary() {
 async function loadAllData() {
     if (!currentLoggedInStaff) return;
     
-    allRequestsCache = await loadDutyChangeRequests({});
+    // Load all requests from Firebase
+    const allRequests = await loadDutyChangeRequests({});
+    allRequestsCache = allRequests;
+    
     console.log('📊 Total requests loaded:', allRequestsCache.length);
     
+    // Update limit display
     updateRequestLimitDisplay();
     
+    // Load all lists - filter for current period only
     await loadMyDutyRequests();
     await loadReceivedRequests();
     await loadAllDutyRequests();
@@ -701,23 +717,25 @@ function updateRequestLimitDisplay() {
     }
     
     const info = getRequestLimitInfo(currentLoggedInStaff.id, allRequestsCache);
+    const currentHalf = getCurrentMonthHalf();
+    const periodLabel = currentHalf === 'first' ? '1-15' : '16-31';
+    
     document.getElementById('requestLimitDisplay').style.display = 'block';
-    document.getElementById('firstHalfUsed').textContent = info.firstHalfUsed;
-    document.getElementById('secondHalfUsed').textContent = info.secondHalfUsed;
+    document.getElementById('firstHalfUsed').textContent = info.usedCount;
+    document.getElementById('firstHalfLabel').textContent = `Month (${periodLabel})`;
     document.getElementById('pendingCount').textContent = info.pendingCount;
     document.getElementById('approvedCount').textContent = info.approvedCount;
     
     const swapDate = document.getElementById('swapDate').value;
     if (swapDate) {
-        const half = getMonthHalf(swapDate);
-        const canRequest = info.canRequest(half);
+        const canRequest = info.canRequest;
         const submitBtn = document.getElementById('submitDutyChangeBtn');
         const warning = document.getElementById('requestLimitWarning');
         
         if (!canRequest) {
             submitBtn.disabled = true;
             warning.style.display = 'block';
-            warning.textContent = `⚠️ You have already used 2 duty changes for ${half === 'first' ? '1-15' : '16-31'} of this month.`;
+            warning.textContent = `⚠️ You have already used 2 duty changes for ${periodLabel} of this month.`;
         } else {
             submitBtn.disabled = false;
             warning.style.display = 'none';
@@ -753,13 +771,15 @@ async function submitDutyChange() {
     
     if (!isOffDutySwap) {
         const info = getRequestLimitInfo(currentLoggedInStaff.id, allRequestsCache);
-        const half = getMonthHalf(swapDate);
-        if (!info.canRequest(half)) {
-            showTemporaryFeedback(`⚠️ You have already used 2 duty changes for ${half === 'first' ? '1-15' : '16-31'} of this month`, true);
+        if (!info.canRequest) {
+            const currentHalf = getCurrentMonthHalf();
+            const periodLabel = currentHalf === 'first' ? '1-15' : '16-31';
+            showTemporaryFeedback(`⚠️ You have already used 2 duty changes for ${periodLabel} of this month`, true);
             return;
         }
     }
     
+    // Check if request already exists for this date
     const existing = await loadDutyChangeRequests({ 
         requesterId: currentLoggedInStaff.id,
         swapDate: swapDate
@@ -799,6 +819,7 @@ async function submitDutyChange() {
     }
 }
 
+// ========== MY DUTY REQUESTS ==========
 async function loadMyDutyRequests() {
     const container = document.getElementById('myDutyRequestsList');
     if (!currentLoggedInStaff) {
@@ -806,9 +827,12 @@ async function loadMyDutyRequests() {
         return;
     }
     
-    const requests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
-    if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No swap requests yet</div>';
+    // Get requests where this staff is the requester AND is in current period
+    const allRequests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
+    const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
+    
+    if (currentPeriodRequests.length === 0) {
+        container.innerHTML = '<div class="empty-state">No swap requests for current period</div>';
         return;
     }
     
@@ -819,7 +843,7 @@ async function loadMyDutyRequests() {
         'rejected': '❌ Rejected'
     };
     
-    container.innerHTML = requests.map(r => `
+    container.innerHTML = currentPeriodRequests.map(r => `
         <div class="request-item">
             <div class="request-info">
                 <div><strong>📅 ${r.swapDate}</strong></div>
@@ -846,7 +870,7 @@ async function loadMyDutyRequests() {
     `).join('');
 }
 
-// ========== RECEIVED REQUESTS - FIXED ==========
+// ========== RECEIVED REQUESTS ==========
 async function loadReceivedRequests() {
     const container = document.getElementById('receivedRequestsList');
     if (!currentLoggedInStaff) {
@@ -854,32 +878,20 @@ async function loadReceivedRequests() {
         return;
     }
     
-    // Get ALL requests first, then filter manually for debugging
-    const allRequests = await loadDutyChangeRequests({});
-    console.log('📩 All requests for debugging:', allRequests.map(r => ({
-        id: r.id,
-        requester: r.requesterName,
-        acceptStaff: r.acceptStaffName,
-        acceptStaffId: r.acceptStaffId,
-        currentStaffId: currentLoggedInStaff.id,
-        status: r.status,
-        match: r.acceptStaffId === currentLoggedInStaff.id
-    })));
-    
-    // Filter: where acceptStaffId matches current user and status is pending_accept
-    const requests = allRequests.filter(r => 
-        r.acceptStaffId === currentLoggedInStaff.id && 
-        r.status === 'pending_accept'
+    // Get all requests where this staff is the accept staff AND is in current period
+    const allRequests = await loadDutyChangeRequests({ acceptStaffId: currentLoggedInStaff.id });
+    const currentPeriodRequests = allRequests.filter(r => 
+        isCurrentPeriod(r.swapDate) && r.status === 'pending_accept'
     );
     
-    console.log('📩 Received requests for', currentLoggedInStaff.name, ':', requests.length);
+    console.log('📩 Received requests for', currentLoggedInStaff.name, ':', currentPeriodRequests.length);
     
-    if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No pending requests received from other staff</div>';
+    if (currentPeriodRequests.length === 0) {
+        container.innerHTML = '<div class="empty-state">No pending requests received from other staff for current period</div>';
         return;
     }
     
-    container.innerHTML = requests.map(r => `
+    container.innerHTML = currentPeriodRequests.map(r => `
         <div class="request-item" style="border-left: 4px solid #e4bc78; background: #f0f8f0;">
             <div class="request-info">
                 <div><strong>📅 ${r.swapDate}</strong></div>
@@ -903,6 +915,7 @@ async function loadReceivedRequests() {
     `).join('');
 }
 
+// ========== SUPERVISOR ALL REQUESTS ==========
 async function loadAllDutyRequests() {
     const container = document.getElementById('allDutyRequestsList');
     const section = document.getElementById('supervisorSection');
@@ -913,10 +926,11 @@ async function loadAllDutyRequests() {
     }
     
     section.style.display = 'block';
-    const requests = await loadDutyChangeRequests({});
+    const allRequests = await loadDutyChangeRequests({});
+    const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
     
-    if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No swap requests</div>';
+    if (currentPeriodRequests.length === 0) {
+        container.innerHTML = '<div class="empty-state">No swap requests for current period</div>';
         return;
     }
     
@@ -927,12 +941,12 @@ async function loadAllDutyRequests() {
         'rejected': '❌ Rejected'
     };
     
-    requests.sort((a, b) => {
+    currentPeriodRequests.sort((a, b) => {
         const order = { 'pending_accept': 0, 'pending_approval': 1, 'approved': 2, 'rejected': 3 };
         return (order[a.status] || 99) - (order[b.status] || 99);
     });
     
-    container.innerHTML = requests.map(r => `
+    container.innerHTML = currentPeriodRequests.map(r => `
         <div class="request-item">
             <div class="request-info">
                 <div><strong>📅 ${r.swapDate}</strong></div>
