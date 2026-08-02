@@ -23,7 +23,7 @@
 
 <div class="app-card">
     <div class="header">
-        <h1>🔄 Duty Change</h1>
+        <h1>🔄 Duty Change Request</h1>
         <div class="nav-buttons">
             <a href="staff-register.html" class="nav-btn">👤 Register</a>
             <div class="profile-btn-container">
@@ -42,7 +42,7 @@
     <!-- Login Section -->
     <div class="login-section">
         <div class="field-group">
-            <label>👤 Select your name to login</label>
+            <label>👤 Login as</label>
             <select id="loginStaffSelect">
                 <option value="">-- Select Staff Member --</option>
             </select>
@@ -55,29 +55,67 @@
     <!-- Duty Change Request Form -->
     <div class="duty-card">
         <h3>📝 Request Duty Change</h3>
-        <div id="dutyFormContainer">
+        
+        <!-- Request Staff Details (Auto-filled from login) -->
+        <div style="background: #f8f1e0; padding: 15px; border-radius: 20px; margin-bottom: 20px;">
+            <h4 style="color: #b87c1a; margin-bottom: 12px;">👤 Request Staff</h4>
+            <div class="field-row">
+                <label>Name</label>
+                <input type="text" id="requestStaffName" readonly style="background:#f3efe6;">
+            </div>
+            <div class="field-row">
+                <label>RC Number</label>
+                <input type="text" id="requestStaffRcNo" readonly style="background:#f3efe6;">
+            </div>
+        </div>
+
+        <!-- Duty Details -->
+        <div style="background: #f0f0e8; padding: 15px; border-radius: 20px; margin-bottom: 20px;">
+            <h4 style="color: #b87c1a; margin-bottom: 12px;">📅 Duty Details</h4>
             <div class="field-row">
                 <label>📅 Duty Date</label>
                 <input type="date" id="dutyDate" value="">
             </div>
             <div class="field-row">
-                <label>⏰ Duty Shift</label>
+                <label>⏰ Duty Time</label>
                 <select id="dutyShift">
-                    <option value="Morning">🌅 Morning</option>
-                    <option value="Evening">🌙 Evening</option>
+                    <option value="Morning">🌅 Morning (07:30 - 15:30)</option>
+                    <option value="Evening">🌙 Evening (15:30 - 23:30)</option>
                 </select>
             </div>
+        </div>
+
+        <!-- Accept Staff Details -->
+        <div style="background: #e8f5e8; padding: 15px; border-radius: 20px; margin-bottom: 20px;">
+            <h4 style="color: #2c6e2c; margin-bottom: 12px;">🤝 Accept Staff</h4>
             <div class="field-row">
-                <label>👤 Accept Staff</label>
+                <label>👤 Select Staff</label>
                 <select id="dutyAcceptStaff">
-                    <option value="">-- Select --</option>
+                    <option value="">-- Select Accepting Staff --</option>
                 </select>
             </div>
             <div class="field-row">
-                <label>🆔 RC Number</label>
-                <input type="text" id="dutyRcNo" readonly placeholder="Auto from profile" style="background:#f3efe6;">
+                <label>Name</label>
+                <input type="text" id="acceptStaffName" readonly style="background:#f3efe6;">
             </div>
-            <button class="btn-primary" id="submitDutyChangeBtn" disabled>📤 Submit Request</button>
+            <div class="field-row">
+                <label>RC Number</label>
+                <input type="text" id="acceptStaffRcNo" readonly style="background:#f3efe6;">
+            </div>
+            <div class="field-row">
+                <label>⏰ Duty Time</label>
+                <input type="text" id="acceptStaffDutyTime" readonly style="background:#f3efe6;" value="Will be same as requested shift">
+            </div>
+        </div>
+
+        <button class="btn-primary" id="submitDutyChangeBtn" disabled>📤 Submit Request</button>
+    </div>
+
+    <!-- Request Summary -->
+    <div class="duty-card" style="background: #fff8e8;">
+        <h3>📋 Request Summary</h3>
+        <div id="requestSummary" style="padding: 10px; color: #5c4311;">
+            <p style="color: #b28b44;">Please login and fill all details to see summary</p>
         </div>
     </div>
 
