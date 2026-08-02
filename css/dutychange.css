@@ -1116,3 +1116,175 @@ body {
         padding: 28px;
     }
 }
+
+/* Add these styles to your existing CSS */
+
+/* ========== ACCEPT STAFF SEARCH ========== */
+.accept-search-container {
+    position: relative;
+    width: 100%;
+}
+
+.accept-search-container input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    border: 1.5px solid #e8d6a8;
+    border-radius: 24px;
+    background: white;
+    outline: none;
+    transition: 0.2s;
+    font-family: inherit;
+}
+
+.accept-search-container input:focus {
+    border-color: #2c6e2c;
+    box-shadow: 0 0 0 3px rgba(44, 110, 44, 0.2);
+}
+
+.accept-search-container .dropdown-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1.5px solid #e8d6a8;
+    border-top: none;
+    border-radius: 0 0 24px 24px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 50;
+    display: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    margin-top: 2px;
+}
+
+.accept-search-container .dropdown-list.show {
+    display: block;
+}
+
+.accept-search-container .dropdown-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: 0.15s;
+    font-size: 0.85rem;
+    color: #5c4311;
+    border-bottom: 1px solid #f0e2be;
+}
+
+.accept-search-container .dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.accept-search-container .dropdown-item:hover {
+    background: #e8f5e8;
+}
+
+.accept-search-container .dropdown-item.active {
+    background: #2c6e2c;
+    color: white;
+}
+
+.accept-search-container .dropdown-item .highlight {
+    font-weight: 700;
+    background: #fef3c7;
+    padding: 0 2px;
+    border-radius: 2px;
+    color: #b87c1a;
+}
+
+.accept-search-container .dropdown-item .rcno-hint {
+    font-size: 0.7rem;
+    color: #b28b44;
+    margin-left: 6px;
+}
+
+.accept-search-container .dropdown-item .role-badge {
+    font-size: 0.55rem;
+    background: #f0e0bc;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+    color: #7a5c1a;
+}
+
+.accept-search-container .dropdown-item .match-badge {
+    font-size: 0.55rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #e8f5e8;
+    color: #2c6e2c;
+}
+
+.accept-search-container .dropdown-item .item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.accept-search-container .dropdown-item .item-meta {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+    flex-wrap: wrap;
+}
+
+.accept-search-container .dropdown-item .rc-display {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #2c6e2c;
+    background: #e8f5e8;
+    padding: 0 10px;
+    border-radius: 12px;
+    font-family: monospace;
+}
+
+.accept-search-container .no-results {
+    padding: 16px;
+    text-align: center;
+    color: #b28b44;
+    font-size: 0.85rem;
+}
+
+.accept-search-container .loading-results {
+    padding: 16px;
+    text-align: center;
+    color: #b28b44;
+    font-size: 0.85rem;
+}
+
+.accept-search-container .loading-results .spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f0e2be;
+    border-top: 2px solid #2c6e2c;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.accept-search-container .selected-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #e8f5e8;
+    border-radius: 20px;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: #2c6e2c;
+    border: 1px solid #2c6e2c;
+}
+
+.accept-search-container .selected-user .remove-btn {
+    cursor: pointer;
+    color: #c25d2e;
+    font-weight: bold;
+    font-size: 1rem;
+    margin-left: auto;
+    padding: 0 4px;
+}
