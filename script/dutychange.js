@@ -143,6 +143,7 @@ async function loadDutyChangeRequests(filters = {}) {
         if (filters.acceptStaffId) q = q.where('acceptStaffId', '==', filters.acceptStaffId);
         if (filters.status) q = q.where('status', '==', filters.status);
         if (filters.swapDate) q = q.where('swapDate', '==', filters.swapDate);
+        if (filters.requesterRole) q = q.where('requesterRole', '==', filters.requesterRole);
         
         const snap = await q.get();
         const results = [];
@@ -189,7 +190,6 @@ async function deleteDutyChange(requestId) {
 async function deleteAllDutyChanges() {
     if (!db || !firebaseConnected) return false;
     
-    // Check if user is Admin
     if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Admin') {
         showTemporaryFeedback('❌ Only Admins can delete all requests', true);
         return false;
@@ -221,38 +221,93 @@ async function deleteAllDutyChanges() {
     }
 }
 
-// ========== REQUEST LIMIT CHECKS ==========
+// ========== REQUEST VALIDATION FUNCTIONS ==========
+function canRequestSwap(staffId, requestDuty, swapDate, acceptStaffId, allRequests) {
+    const errors = [];
+    
+    // 1. Check if Off Duty swap - these don't count towards limits
+    const isOffDutySwap = isOffDuty(requestDuty);
+    
+    // Get all requests for this staff
+    const staffRequests = allRequests.filter(r => r.requesterId === staffId);
+    
+    // 2. Check if already requested for this date (only one per day)
+    const existingDateRequest = staffRequests.find(r => 
+        r.swapDate === swapDate && 
+        (r.status === 'pending' || r.status === 'approved')
+    );
+    if (existingDateRequest) {
+        errors.push('You already have a pending/approved swap request for this date');
+    }
+    
+    // 3. Check if already changed this original duty
+    const existingDutyChange = staffRequests.find(r => 
+        r.requesterDuty === requestDuty && 
+        (r.status === 'pending' || r.status === 'approved')
+    );
+    if (existingDutyChange) {
+        errors.push('You have already requested to change this duty');
+    }
+    
+    // 4. Check month half limit (2 per half) - only for duty changes, not Off Duty
+    if (!isOffDutySwap) {
+        const currentHalf = getMonthHalf(swapDate);
+        const halfRequests = staffRequests.filter(r => 
+            getMonthHalf(r.swapDate) === currentHalf && 
+            !isOffDuty(r.requesterDuty) &&
+            (r.status === 'pending' || r.status === 'approved')
+        );
+        
+        if (halfRequests.length >= 2) {
+            errors.push(`You have already used 2 duty changes for ${currentHalf === 'first' ? '1-15' : '16-31'} of this month`);
+        }
+    }
+    
+    // 5. Check same role validation
+    const requester = getStaffById(staffId);
+    const acceptStaff = getStaffById(acceptStaffId);
+    if (requester && acceptStaff && requester.role !== acceptStaff.role) {
+        errors.push(`You can only swap with staff of the same role (${requester.role} with ${requester.role})`);
+    }
+    
+    return {
+        canRequest: errors.length === 0,
+        errors: errors
+    };
+}
+
+// ========== REQUEST LIMIT DISPLAY ==========
 function getRequestLimitInfo(staffId, allRequests) {
+    const staffRequests = allRequests.filter(r => r.requesterId === staffId);
     const currentHalf = getCurrentMonthHalf();
     
-    const currentPeriodRequests = allRequests.filter(r => 
-        r.requesterId === staffId && 
-        isCurrentPeriod(r.swapDate)
+    // Count for current half (excluding Off Duty)
+    const halfRequests = staffRequests.filter(r => 
+        getMonthHalf(r.swapDate) === currentHalf && 
+        !isOffDuty(r.requesterDuty) &&
+        (r.status === 'pending' || r.status === 'approved')
     );
     
-    const dutyChangeRequests = currentPeriodRequests.filter(r => 
-        !isOffDuty(r.requesterDuty) && !isOffDuty(r.acceptStaffDuty)
-    );
-    
-    let usedCount = 0;
+    // Count pending and approved
     let pendingCount = 0;
     let approvedCount = 0;
+    let usedCount = 0;
     
-    dutyChangeRequests.forEach(r => {
+    staffRequests.forEach(r => {
         if (r.status === 'approved') {
             approvedCount++;
-            usedCount++;
+            if (!isOffDuty(r.requesterDuty)) usedCount++;
         } else if (r.status === 'pending') {
             pendingCount++;
-            usedCount++;
+            if (!isOffDuty(r.requesterDuty)) usedCount++;
         }
     });
     
     return {
-        usedCount,
+        usedCount: halfRequests.length,
         pendingCount,
         approvedCount,
-        canRequest: usedCount < 2
+        canRequest: halfRequests.length < 2
     };
 }
 
@@ -652,7 +707,7 @@ function populateDutyForm(staff) {
             if (s.id !== staff.id) {
                 const opt = document.createElement('option');
                 opt.value = s.id;
-                opt.textContent = `${s.name} (RC: ${s.rcno})`;
+                opt.textContent = `${s.name} (RC: ${s.rcno}) [${s.role}]`;
                 acceptSelect.appendChild(opt);
             }
         });
@@ -804,25 +859,17 @@ async function submitDutyChange() {
         return; 
     }
     
-    const isOffDutySwap = isOffDuty(requestDuty) || isOffDuty(acceptDuty);
+    // Validate request
+    const validation = canRequestSwap(
+        currentLoggedInStaff.id, 
+        requestDuty, 
+        swapDate, 
+        acceptId, 
+        allRequestsCache
+    );
     
-    if (!isOffDutySwap) {
-        const info = getRequestLimitInfo(currentLoggedInStaff.id, allRequestsCache);
-        if (!info.canRequest) {
-            const currentHalf = getCurrentMonthHalf();
-            const periodLabel = currentHalf === 'first' ? '1-15' : '16-31';
-            showTemporaryFeedback(`⚠️ You have already used 2 duty changes for ${periodLabel} of this month`, true);
-            return;
-        }
-    }
-    
-    const existing = await loadDutyChangeRequests({ 
-        requesterId: currentLoggedInStaff.id,
-        swapDate: swapDate
-    });
-    const hasPending = existing.some(r => r.status === 'pending');
-    if (hasPending) {
-        showTemporaryFeedback('⚠️ You already have a pending swap request for this date', true);
+    if (!validation.canRequest) {
+        showTemporaryFeedback('⚠️ ' + validation.errors[0], true);
         return;
     }
     
@@ -830,15 +877,17 @@ async function submitDutyChange() {
         requesterId: currentLoggedInStaff.id,
         requesterName: currentLoggedInStaff.name,
         requesterRcNo: currentLoggedInStaff.rcno || '',
+        requesterRole: currentLoggedInStaff.role || 'Staff',
         requesterDuty: requestDuty,
         acceptStaffId: acceptStaff.id,
         acceptStaffName: acceptStaff.name,
         acceptStaffRcNo: acceptStaff.rcno || '',
+        acceptStaffRole: acceptStaff.role || 'Staff',
         acceptStaffDuty: acceptDuty,
         swapDate: swapDate,
         reason: reason || '',
         status: 'pending',
-        isOffDutySwap: isOffDutySwap
+        isOffDutySwap: isOffDuty(requestDuty) || isOffDuty(acceptDuty)
     };
     
     const ok = await saveDutyChangeRequest(request);
@@ -882,11 +931,11 @@ async function loadMyDutyRequests() {
             <div class="request-info">
                 <div><strong>📅 ${r.swapDate}</strong></div>
                 <div style="font-size: 0.85rem; margin-top: 4px;">
-                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''}) [${r.requesterRole || 'Staff'}]
                     <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
                 <div style="font-size: 0.85rem;">
-                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''}) [${r.acceptStaffRole || 'Staff'}]
                     <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
                 </div>
                 ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
@@ -929,7 +978,7 @@ async function loadReceivedRequests() {
             <div class="request-info">
                 <div><strong>📅 ${r.swapDate}</strong></div>
                 <div style="font-size: 0.85rem; margin-top: 4px;">
-                    👤 From: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    👤 From: ${r.requesterName} (RC: ${r.requesterRcNo || ''}) [${r.requesterRole || 'Staff'}]
                     <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
                 <div style="font-size: 0.85rem;">
@@ -953,7 +1002,6 @@ async function loadAdminRequests() {
     const container = document.getElementById('adminRequestsList');
     const section = document.getElementById('adminSection');
     
-    // Only show for Admin role
     if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Admin') {
         section.style.display = 'none';
         return;
@@ -979,11 +1027,11 @@ async function loadAdminRequests() {
             <div class="request-info">
                 <div><strong>📅 ${r.swapDate}</strong></div>
                 <div style="font-size: 0.85rem; margin-top: 4px;">
-                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''}) [${r.requesterRole || 'Staff'}]
                     <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
                 <div style="font-size: 0.85rem;">
-                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                    🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''}) [${r.acceptStaffRole || 'Staff'}]
                     <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
                 </div>
                 ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
@@ -1047,9 +1095,7 @@ window.rejectSwapRequest = async function(id) {
     }
 };
 
-// Admin only delete function
 window.deleteDutyRequest = async function(id) {
-    // Only Admins can delete requests from admin panel
     if (currentLoggedInStaff?.role !== 'Admin') {
         showTemporaryFeedback('❌ Only Admins can delete requests', true);
         return;
@@ -1062,7 +1108,6 @@ window.deleteDutyRequest = async function(id) {
     }
 };
 
-// Expose deleteAllDutyChanges to window for onclick
 window.deleteAllDutyChanges = deleteAllDutyChanges;
 
 // ========== TOAST ==========
@@ -1094,7 +1139,7 @@ async function initApp() {
     const loginSelect = document.getElementById('loginStaffSelect');
     loginSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
     staffData.forEach(s => {
-        loginSelect.appendChild(new Option(`${s.name} (RC: ${s.rcno})`, s.id));
+        loginSelect.appendChild(new Option(`${s.name} (RC: ${s.rcno}) [${s.role}]`, s.id));
     });
     
     loginSelect.addEventListener('change', async (e) => {
