@@ -279,8 +279,8 @@ function hideLoadingPopup() {
 // CONFIGURE EMAIL RECIPIENTS HERE
 const EMAIL_RECIPIENTS = {
     // Primary recipients
-    admin: 'admin@yourcompany.com',
-    supervisor: 'supervisor@yourcompany.com',
+    admin: 'iirufan@gmail.com',
+    supervisor: 'tym95959@gmail.com',
     // Additional recipients (CC)
     ccList: [
         'hr@yourcompany.com',
