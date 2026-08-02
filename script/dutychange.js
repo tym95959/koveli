@@ -9,6 +9,7 @@ let pendingAuth = { staff: null, viewType: null, selectEl: null, prevDropdownVal
 let staffLoaded = false;
 let isStaffLoading = false;
 let searchTimeout = null;
+let isDropdownOpen = false;
 
 // ========== PERSISTENT LOGIN ==========
 const STORAGE_KEY = 'dutyChangeLoggedInStaff';
@@ -54,18 +55,10 @@ async function loadStaffFromFirebase(searchTerm = '') {
         return [];
     }
     
-    // Only search if term is 4 characters or more
-    if (searchTerm.length < 4) {
-        // If we already have staff loaded, filter locally
-        if (staffLoaded && staffData.length > 0) {
-            return staffData;
-        }
-        // If no search term and no staff loaded, return empty
-        if (searchTerm.length === 0) {
-            return [];
-        }
-        // If less than 4 chars, don't search
-        console.log('🔍 Type at least 4 characters to search');
+    // If search term is less than 2 chars, clear results
+    if (searchTerm.length < 2) {
+        staffData = [];
+        staffLoaded = false;
         return [];
     }
     
@@ -75,7 +68,7 @@ async function loadStaffFromFirebase(searchTerm = '') {
         const term = searchTerm.toLowerCase().trim();
         console.log(`🔍 Searching for: "${term}"`);
         
-        // Get all staff and filter locally (Firebase doesn't support partial matches well)
+        // Get all staff and filter locally
         const snapshot = await db.collection('staff').get();
         
         if (snapshot.empty) {
@@ -150,20 +143,6 @@ async function loadStaffForLoggedInUser() {
 
 function getStaffById(id) { 
     return staffData.find(s => s.id === id); 
-}
-
-function searchStaff(searchTerm) {
-    if (!searchTerm || searchTerm.length < 2) return [];
-    const term = searchTerm.toLowerCase().trim();
-    return staffData.filter(s => 
-        s.name.toLowerCase().includes(term) || 
-        s.rcno.toString().includes(term)
-    );
-}
-
-function getFilteredStaffForLogin() {
-    if (!currentLoggedInStaff) return staffData;
-    return staffData.filter(s => s.role === currentLoggedInStaff.role && s.id !== currentLoggedInStaff.id);
 }
 
 function getStaffEmail(staffId) {
@@ -774,7 +753,6 @@ async function attemptAutoVerify(source) {
         
         saveLoggedInStaff(staff);
         populateDutyForm(staff);
-        updateLoginDropdown();
         await loadAllData();
         
         showTemporaryFeedback(`✅ Welcome ${staff.name}!`);
@@ -982,41 +960,208 @@ async function saveNewCode() {
     }
 }
 
-// ========== UPDATE LOGIN DROPDOWN ==========
-function updateLoginDropdown() {
-    const loginSelect = document.getElementById('loginStaffSelect');
-    if (!loginSelect) return;
-    
-    const currentValue = loginSelect.value;
-    loginSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
-    
-    // Show hint about typing
-    if (staffData.length === 0) {
-        const hint = document.createElement('option');
-        hint.value = '';
-        hint.textContent = '🔍 Type 4+ characters to search';
-        hint.disabled = true;
-        loginSelect.appendChild(hint);
-        return;
-    }
-    
-    let staffToShow = staffData;
-    if (currentLoggedInStaff) {
-        staffToShow = staffData.filter(s => s.role === currentLoggedInStaff.role);
-    }
-    
-    staffToShow.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = `${s.name} (RC: ${s.rcno})`;
-        loginSelect.appendChild(opt);
+// ========== SEARCHABLE DROPDOWN FUNCTIONS ==========
+function setupSearchableDropdown() {
+    const searchInput = document.getElementById('staffSearchInput');
+    const dropdownList = document.getElementById('staffDropdownList');
+    const hiddenSelect = document.getElementById('loginStaffSelect');
+    const selectedDisplay = document.getElementById('selectedStaffDisplay');
+    const selectedName = document.getElementById('selectedStaffName');
+    const selectedRc = document.getElementById('selectedStaffRc');
+    const clearBtn = document.getElementById('clearSelectedStaff');
+
+    if (!searchInput) return;
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+        const container = document.getElementById('staffSearchContainer');
+        if (container && !container.contains(e.target)) {
+            dropdownList.classList.remove('show');
+            isDropdownOpen = false;
+        }
     });
-    
-    if (currentLoggedInStaff) {
-        loginSelect.value = currentLoggedInStaff.id;
-    } else if (currentValue) {
-        loginSelect.value = currentValue;
+
+    // Handle input search
+    searchInput.addEventListener('input', async (e) => {
+        const term = e.target.value;
+        
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+
+        if (term.length < 2) {
+            dropdownList.classList.remove('show');
+            isDropdownOpen = false;
+            return;
+        }
+
+        // Show loading state
+        dropdownList.innerHTML = `
+            <div class="loading-results">
+                <span class="spinner-small"></span> Searching...
+            </div>
+        `;
+        dropdownList.classList.add('show');
+        isDropdownOpen = true;
+
+        searchTimeout = setTimeout(async () => {
+            const results = await loadStaffFromFirebase(term);
+            renderDropdownResults(results, term);
+        }, 400);
+    });
+
+    // Handle Enter key
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const term = searchInput.value;
+            if (term.length >= 2) {
+                loadStaffFromFirebase(term).then(results => {
+                    renderDropdownResults(results, term);
+                });
+            }
+        }
+        // Arrow keys for navigation
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const items = dropdownList.querySelectorAll('.dropdown-item');
+            if (items.length === 0) return;
+            
+            let currentIndex = -1;
+            items.forEach((item, index) => {
+                if (item.classList.contains('active')) {
+                    currentIndex = index;
+                    item.classList.remove('active');
+                }
+            });
+            
+            let newIndex = e.key === 'ArrowDown' ? 
+                (currentIndex + 1) % items.length : 
+                (currentIndex - 1 + items.length) % items.length;
+            
+            items[newIndex].classList.add('active');
+            items[newIndex].scrollIntoView({ block: 'nearest' });
+        }
+    });
+
+    // Render dropdown results
+    function renderDropdownResults(results, searchTerm) {
+        if (!dropdownList) return;
+
+        if (isStaffLoading) {
+            dropdownList.innerHTML = `
+                <div class="loading-results">
+                    <span class="spinner-small"></span> Searching...
+                </div>
+            `;
+            return;
+        }
+
+        if (results.length === 0) {
+            dropdownList.innerHTML = `
+                <div class="no-results">No staff found matching "<strong>${searchTerm}</strong>"</div>
+            `;
+            return;
+        }
+
+        const term = searchTerm.toLowerCase().trim();
+        let html = '';
+        
+        results.forEach(staff => {
+            const nameMatch = staff.name.toLowerCase().includes(term);
+            const rcMatch = staff.rcno.toString().includes(term);
+            
+            let displayName = staff.name;
+            if (nameMatch) {
+                const index = staff.name.toLowerCase().indexOf(term);
+                displayName = staff.name.substring(0, index) + 
+                    `<span class="highlight">${staff.name.substring(index, index + term.length)}</span>` + 
+                    staff.name.substring(index + term.length);
+            }
+            
+            html += `
+                <div class="dropdown-item" data-id="${staff.id}" data-name="${staff.name}" data-rc="${staff.rcno}" data-role="${staff.role}">
+                    ${displayName}
+                    <span class="rcno-hint">(RC: ${staff.rcno})</span>
+                    <span class="role-badge">${staff.role}</span>
+                    ${rcMatch ? ' 🔍' : ''}
+                </div>
+            `;
+        });
+
+        dropdownList.innerHTML = html;
+
+        // Add click handlers to dropdown items
+        dropdownList.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.dataset.id;
+                const name = item.dataset.name;
+                const rc = item.dataset.rc;
+                const role = item.dataset.role;
+                
+                selectStaff(id, name, rc, role);
+                dropdownList.classList.remove('show');
+                isDropdownOpen = false;
+                searchInput.value = name;
+            });
+            
+            // Hover effect
+            item.addEventListener('mouseenter', () => {
+                dropdownList.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
     }
+
+    // Select staff
+    function selectStaff(id, name, rc, role) {
+        hiddenSelect.value = id;
+        selectedName.textContent = name;
+        selectedRc.textContent = `RC: ${rc} | ${role}`;
+        selectedDisplay.style.display = 'block';
+        
+        // Trigger login
+        const event = new Event('change');
+        hiddenSelect.dispatchEvent(event);
+    }
+
+    // Clear selected staff
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            hiddenSelect.value = '';
+            selectedDisplay.style.display = 'none';
+            searchInput.value = '';
+            dropdownList.classList.remove('show');
+            isDropdownOpen = false;
+            
+            if (currentLoggedInStaff) {
+                logoutUser();
+            }
+        });
+    }
+
+    // Show dropdown when input gets focus
+    searchInput.addEventListener('focus', () => {
+        if (searchInput.value.length >= 2 && staffData.length > 0) {
+            dropdownList.classList.add('show');
+            isDropdownOpen = true;
+            renderDropdownResults(staffData, searchInput.value);
+        } else if (searchInput.value.length >= 2) {
+            // Trigger search
+            const term = searchInput.value;
+            loadStaffFromFirebase(term).then(results => {
+                renderDropdownResults(results, term);
+            });
+        }
+    });
+
+    // Return functions for external use
+    return {
+        selectStaff,
+        renderDropdownResults,
+        searchInput,
+        dropdownList
+    };
 }
 
 // ========== DUTY CHANGE UI ==========
@@ -1407,10 +1552,22 @@ function logoutUser() {
     document.getElementById('profileAvatar').innerHTML = '👤';
     document.getElementById('profileMenu').classList.remove('show');
     
-    const loginSelect = document.getElementById('loginStaffSelect');
-    if (loginSelect) {
-        loginSelect.value = '';
-        updateLoginDropdown();
+    // Reset search dropdown
+    const searchInput = document.getElementById('staffSearchInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    const selectedDisplay = document.getElementById('selectedStaffDisplay');
+    if (selectedDisplay) {
+        selectedDisplay.style.display = 'none';
+    }
+    const dropdownList = document.getElementById('staffDropdownList');
+    if (dropdownList) {
+        dropdownList.classList.remove('show');
+    }
+    const hiddenSelect = document.getElementById('loginStaffSelect');
+    if (hiddenSelect) {
+        hiddenSelect.value = '';
     }
     
     document.getElementById('requestStaffName').value = '';
@@ -1558,42 +1715,6 @@ function showTemporaryFeedback(message, isError = false) {
     }, 2500);
 }
 
-// ========== SEARCH STAFF ==========
-async function handleStaffSearch(searchTerm) {
-    const loginSelect = document.getElementById('loginStaffSelect');
-    if (!loginSelect) return;
-    
-    // Clear previous timeout
-    if (searchTimeout) {
-        clearTimeout(searchTimeout);
-    }
-    
-    // If less than 4 characters, show hint
-    if (searchTerm.length < 4) {
-        loginSelect.innerHTML = `
-            <option value="">-- Select Staff Member --</option>
-            <option value="" disabled>🔍 Type 4+ characters to search</option>
-        `;
-        return;
-    }
-    
-    // Show loading state
-    loginSelect.innerHTML = `
-        <option value="">-- Searching... --</option>
-    `;
-    
-    // Debounce search
-    searchTimeout = setTimeout(async () => {
-        await loadStaffFromFirebase(searchTerm);
-        updateLoginDropdown();
-        
-        // If we found staff and user is already logged in, update accept dropdown too
-        if (currentLoggedInStaff && staffData.length > 0) {
-            updateAcceptStaffDropdown();
-        }
-    }, 500); // Wait 500ms after user stops typing
-}
-
 // ========== INIT ==========
 async function initApp() {
     console.log('🚀 Initializing Duty Change App...');
@@ -1607,47 +1728,8 @@ async function initApp() {
     initChangePatternGrid();
     buildChangePinKeypad();
     
-    // 3. Setup login dropdown with search input
-    const loginSelect = document.getElementById('loginStaffSelect');
-    
-    // Create an input for searching staff
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = '🔍 Type name or RC (min 4 chars)...';
-    searchInput.style.cssText = `
-        width: 100%;
-        padding: 12px 16px;
-        font-size: 0.95rem;
-        border: 1.5px solid #e8d6a8;
-        border-radius: 28px;
-        background: white;
-        margin-bottom: 8px;
-        outline: none;
-    `;
-    
-    // Insert search input before the select
-    const parent = loginSelect.parentElement;
-    parent.insertBefore(searchInput, loginSelect);
-    
-    // Handle search input
-    searchInput.addEventListener('input', (e) => {
-        handleStaffSearch(e.target.value);
-    });
-    
-    // Also handle search on Enter key
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const term = e.target.value;
-            if (term.length >= 4) {
-                loadStaffFromFirebase(term).then(() => {
-                    updateLoginDropdown();
-                    if (currentLoggedInStaff && staffData.length > 0) {
-                        updateAcceptStaffDropdown();
-                    }
-                });
-            }
-        }
-    });
+    // 3. Setup searchable dropdown
+    const searchDropdown = setupSearchableDropdown();
     
     // 4. Check for persistent login
     const savedStaff = getLoggedInStaff();
@@ -1666,19 +1748,34 @@ async function initApp() {
             document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
             document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
             
+            // Set search input and selected display
+            const searchInput = document.getElementById('staffSearchInput');
+            if (searchInput) {
+                searchInput.value = staff.name;
+            }
+            const selectedDisplay = document.getElementById('selectedStaffDisplay');
+            const selectedName = document.getElementById('selectedStaffName');
+            const selectedRc = document.getElementById('selectedStaffRc');
+            if (selectedDisplay && selectedName && selectedRc) {
+                selectedDisplay.style.display = 'block';
+                selectedName.textContent = staff.name;
+                selectedRc.textContent = `RC: ${staff.rcno} | ${staff.role}`;
+            }
+            const hiddenSelect = document.getElementById('loginStaffSelect');
+            if (hiddenSelect) {
+                hiddenSelect.value = staff.id;
+            }
+            
             populateDutyForm(staff);
-            updateLoginDropdown();
             await loadAllData();
             
             showTemporaryFeedback(`👋 Welcome back ${staff.name}!`);
         }
-    } else {
-        // Show empty state with search hint
-        updateLoginDropdown();
     }
     
     // ========== LOGIN EVENT ==========
-    loginSelect.addEventListener('change', async (e) => {
+    const hiddenSelect = document.getElementById('loginStaffSelect');
+    hiddenSelect.addEventListener('change', async (e) => {
         const selectedValue = e.target.value;
         if (!selectedValue) {
             if (currentLoggedInStaff) {
@@ -1689,10 +1786,22 @@ async function initApp() {
         const s = getStaffById(selectedValue);
         if (s) {
             await loadSpecificStaffCredentials(s.id);
-            const result = await openPasswordModal(s, loginSelect, loginSelect.value);
+            const result = await openPasswordModal(s, hiddenSelect, hiddenSelect.value);
             if (!result?.success) {
-                if (currentLoggedInStaff) loginSelect.value = currentLoggedInStaff.id;
-                else loginSelect.value = '';
+                if (currentLoggedInStaff) {
+                    // Revert selection
+                    const searchInput = document.getElementById('staffSearchInput');
+                    if (searchInput) {
+                        searchInput.value = currentLoggedInStaff.name;
+                    }
+                    const selectedDisplay = document.getElementById('selectedStaffDisplay');
+                    if (selectedDisplay) {
+                        selectedDisplay.style.display = 'block';
+                    }
+                    hiddenSelect.value = currentLoggedInStaff.id;
+                } else {
+                    hiddenSelect.value = '';
+                }
             }
         }
     });
