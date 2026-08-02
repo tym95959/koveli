@@ -696,6 +696,7 @@ async function loadAllData() {
     allRequestsCache = allRequests;
     
     console.log('📊 Total requests loaded:', allRequestsCache.length);
+    console.log('👤 Logged in as:', currentLoggedInStaff.name, 'Role:', currentLoggedInStaff.role);
     
     updateRequestLimitDisplay();
     
@@ -863,7 +864,7 @@ async function loadMyDutyRequests() {
     `).join('');
 }
 
-// ========== RECEIVED REQUESTS - ONLY ACCEPT STAFF CAN SEE ==========
+// ========== RECEIVED REQUESTS - ONLY FOR ACCEPT STAFF ==========
 async function loadReceivedRequests() {
     const container = document.getElementById('receivedRequestsList');
     if (!currentLoggedInStaff) {
@@ -871,7 +872,7 @@ async function loadReceivedRequests() {
         return;
     }
     
-    // ONLY show requests where this staff is the accept staff AND status is pending_accept
+    // Get ALL pending_accept requests where this staff is the accept staff
     const allRequests = await loadDutyChangeRequests({ 
         acceptStaffId: currentLoggedInStaff.id,
         status: 'pending_accept'
@@ -911,11 +912,12 @@ async function loadReceivedRequests() {
     `).join('');
 }
 
-// ========== SUPERVISOR ALL REQUESTS ==========
+// ========== SUPERVISOR ALL REQUESTS - ONLY FOR SUPERVISORS ==========
 async function loadAllDutyRequests() {
     const container = document.getElementById('allDutyRequestsList');
     const section = document.getElementById('supervisorSection');
     
+    // ONLY show if logged in user is Supervisor
     if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
         section.style.display = 'none';
         return;
@@ -1100,9 +1102,11 @@ async function initApp() {
                 document.getElementById('requestStaffRcNo').value = '';
                 document.getElementById('submitDutyChangeBtn').disabled = true;
                 document.getElementById('requestLimitDisplay').style.display = 'none';
-                loadMyDutyRequests();
-                loadReceivedRequests();
-                loadAllDutyRequests();
+                // Clear all lists
+                document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
+                document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
+                document.getElementById('allDutyRequestsList').innerHTML = '<div class="empty-state">No requests pending</div>';
+                document.getElementById('supervisorSection').style.display = 'none';
                 updateRequestSummary();
             }
             return;
@@ -1197,10 +1201,17 @@ async function initApp() {
         profileMenu.classList.remove('show');
     };
     
-    loadMyDutyRequests();
-    loadReceivedRequests();
-    loadAllDutyRequests();
-    updateRequestSummary();
+    // Initial load
+    if (currentLoggedInStaff) {
+        await loadAllData();
+    } else {
+        // Show empty states
+        document.getElementById('myDutyRequestsList').innerHTML = '<div class="empty-state">Login to see your requests</div>';
+        document.getElementById('receivedRequestsList').innerHTML = '<div class="empty-state">Login to see requests</div>';
+        document.getElementById('allDutyRequestsList').innerHTML = '<div class="empty-state">No requests pending</div>';
+        document.getElementById('supervisorSection').style.display = 'none';
+        updateRequestSummary();
+    }
     
     console.log('✅ Duty Swap App initialized');
     console.log(`📊 ${staffData.length} staff members loaded`);
