@@ -697,7 +697,7 @@ async function loadAllData() {
     allRequestsCache = allRequests;
     
     console.log('📊 Total requests loaded:', allRequestsCache.length);
-    console.log('👤 Logged in as:', currentLoggedInStaff.name);
+    console.log('👤 Logged in as:', currentLoggedInStaff.name, 'ID:', currentLoggedInStaff.id);
     
     updateRequestLimitDisplay();
     
@@ -872,6 +872,7 @@ async function loadReceivedRequests() {
     }
     
     // Get ALL pending requests where this staff is the accept staff
+    // This works for ANY staff member, regardless of role
     const allRequests = await loadDutyChangeRequests({ 
         acceptStaffId: currentLoggedInStaff.id,
         status: 'pending'
@@ -921,6 +922,7 @@ window.cancelDutyRequest = async function(id) {
     }
 };
 
+// These functions work for ANY staff who is the accept staff
 window.acceptSwapRequest = async function(id) {
     const request = allRequestsCache.find(r => r.id === id);
     if (!request) {
