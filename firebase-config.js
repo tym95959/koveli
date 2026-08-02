@@ -1,23 +1,14 @@
-// firebase-config.js
-// Firebase configuration for REALTIME DATABASE
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBJe4nvC4Q2p-lBSth8a4LOSkWIwW8Zs2g",
-  authDomain: "housekeeping-791a4.firebaseapp.com",
-  databaseURL: "https://housekeeping-791a4-default-rtdb.firebaseio.com", // ADD THIS LINE for Realtime Database
-  projectId: "housekeeping-791a4",
-  storageBucket: "housekeeping-791a4.firebasestorage.app",
-  messagingSenderId: "451334815894",
-  appId: "1:451334815894:web:df851c38bd22b6094382b7",
-  measurementId: "G-2NQHXVSSRR"
+// clist.js
+const firebaseConfigCList = {
+  apiKey: "AIzaSyAj9HPVS22uvIGuaNn5etylBTaiBbXap4U",
+  authDomain: "clist-d9050.firebaseapp.com",
+  projectId: "clist-d9050",
+  storageBucket: "clist-d9050.firebasestorage.app",
+  messagingSenderId: "598441885899",
+  appId: "1:598441885899:web:d8a2341ae7993220d75b4e",
+  measurementId: "G-8TJTGQ2P8S"
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-export { db };
+firebase.initializeApp(firebaseConfigCList);
+console.log("✅ Firebase initialized successfully from clist.js!");
