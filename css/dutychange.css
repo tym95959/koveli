@@ -391,6 +391,22 @@ input[readonly] {
     color: white;
 }
 
+.duty-badge {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 0 4px;
+}
+
+.duty-morning1 { background: #fde68a; color: #78350f; }
+.duty-morning2 { background: #fcd34d; color: #78350f; }
+.duty-afternoon1 { background: #fdba74; color: #7c2d12; }
+.duty-afternoon2 { background: #fb923c; color: #7c2d12; }
+.duty-night { background: #818cf8; color: #1e1b4b; }
+.duty-off { background: #d1d5db; color: #1f2937; }
+
 .empty-state {
     text-align: center;
     color: #b28b44;
@@ -653,20 +669,21 @@ input[readonly] {
     margin-top: 20px;
 }
 
-.duty-badge {
-    display: inline-block;
-    padding: 2px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
+#requestLimitDisplay {
+    margin-top: 10px;
 }
 
-.duty-morning1 { background: #fde68a; color: #78350f; }
-.duty-morning2 { background: #fcd34d; color: #78350f; }
-.duty-afternoon1 { background: #fdba74; color: #7c2d12; }
-.duty-afternoon2 { background: #fb923c; color: #7c2d12; }
-.duty-night { background: #818cf8; color: #1e1b4b; }
-.duty-off { background: #d1d5db; color: #1f2937; }
+#requestLimitDisplay .limit-box {
+    background: #f8e9cf;
+    padding: 10px;
+    border-radius: 16px;
+}
+
+#requestLimitDisplay .limit-box .limit-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
 
 @media (max-width: 650px) {
     .app-card {
@@ -700,26 +717,17 @@ input[readonly] {
         flex: 1;
         justify-content: center;
     }
-}
-
-/* Duty badge styles */
-.duty-badge {
-    display: inline-block;
-    padding: 2px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin: 0 4px;
-}
-
-.duty-morning1 { background: #fde68a; color: #78350f; }
-.duty-morning2 { background: #fcd34d; color: #78350f; }
-.duty-afternoon1 { background: #fdba74; color: #7c2d12; }
-.duty-afternoon2 { background: #fb923c; color: #7c2d12; }
-.duty-night { background: #818cf8; color: #1e1b4b; }
-.duty-off { background: #d1d5db; color: #1f2937; }
-
-.badge-pending {
-    background: #f8e9cf;
-    color: #b8860b;
+    .modal-container {
+        padding: 20px 15px;
+    }
+    .pattern-grid {
+        width: 200px;
+    }
+    .dot {
+        width: 50px;
+        height: 50px;
+    }
+    .pattern-wrapper {
+        width: 200px;
+    }
 }
