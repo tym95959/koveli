@@ -81,7 +81,7 @@ async function loadStaffFromFirebase(searchTerm = '') {
         return [];
     }
 
-    if (searchTerm.length < 2) {
+    if (searchTerm.length < 3) {
         staffData = [];
         staffLoaded = false;
         return [];
@@ -1009,7 +1009,7 @@ function setupSearchableDropdown() {
         }
     });
 
-    // Handle input search
+    // Handle input search - minimum 3 characters
     searchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
 
@@ -1017,7 +1017,7 @@ function setupSearchableDropdown() {
             clearTimeout(searchTimeout);
         }
 
-        if (term.length < 2) {
+        if (term.length < 3) {
             dropdownList.classList.remove('show');
             isDropdownOpen = false;
             return;
@@ -1043,7 +1043,7 @@ function setupSearchableDropdown() {
         if (e.key === 'Enter') {
             e.preventDefault();
             const term = searchInput.value;
-            if (term.length >= 2) {
+            if (term.length >= 3) {
                 loadStaffFromFirebase(term).then(results => {
                     renderDropdownResults(results, term);
                 });
@@ -1190,11 +1190,11 @@ function setupSearchableDropdown() {
 
     // Show dropdown when input gets focus
     searchInput.addEventListener('focus', () => {
-        if (searchInput.value.length >= 2 && staffData.length > 0) {
+        if (searchInput.value.length >= 3 && staffData.length > 0) {
             dropdownList.classList.add('show');
             isDropdownOpen = true;
             renderDropdownResults(staffData, searchInput.value);
-        } else if (searchInput.value.length >= 2) {
+        } else if (searchInput.value.length >= 3) {
             const term = searchInput.value;
             loadStaffFromFirebase(term).then(results => {
                 renderDropdownResults(results, term);
@@ -1231,7 +1231,7 @@ function setupAcceptStaffSearch() {
         }
     });
 
-    // Handle input search
+    // Handle input search - minimum 3 characters
     acceptSearchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
 
@@ -1239,7 +1239,7 @@ function setupAcceptStaffSearch() {
             clearTimeout(acceptSearchTimeout);
         }
 
-        if (term.length < 2) {
+        if (term.length < 3) {
             acceptDropdownList.classList.remove('show');
             return;
         }
@@ -1263,7 +1263,7 @@ function setupAcceptStaffSearch() {
         if (e.key === 'Enter') {
             e.preventDefault();
             const term = acceptSearchInput.value;
-            if (term.length >= 2) {
+            if (term.length >= 3) {
                 searchAcceptStaff(term).then(results => {
                     renderAcceptDropdownResults(results, term);
                 });
@@ -1300,7 +1300,7 @@ function setupAcceptStaffSearch() {
         }
 
         const term = searchTerm.toLowerCase().trim();
-        if (term.length < 2) return [];
+        if (term.length < 3) return [];
 
         // Use existing staffData or load from Firebase
         let staffToSearch = staffData.length > 0 ? staffData : await loadStaffFromFirebase(term);
@@ -1435,10 +1435,10 @@ function setupAcceptStaffSearch() {
 
     // Show dropdown when input gets focus
     acceptSearchInput.addEventListener('focus', () => {
-        if (acceptSearchInput.value.length >= 2 && acceptStaffData.length > 0) {
+        if (acceptSearchInput.value.length >= 3 && acceptStaffData.length > 0) {
             acceptDropdownList.classList.add('show');
             renderAcceptDropdownResults(acceptStaffData, acceptSearchInput.value);
-        } else if (acceptSearchInput.value.length >= 2) {
+        } else if (acceptSearchInput.value.length >= 3) {
             const term = acceptSearchInput.value;
             searchAcceptStaff(term).then(results => {
                 renderAcceptDropdownResults(results, term);
