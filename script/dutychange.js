@@ -1,4 +1,4 @@
-import { staffList } from 'script/staff.js';
+import { staffList } from './staff.js';
 
 // ========== FIREBASE ==========
 let db = null;
