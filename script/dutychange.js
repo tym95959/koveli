@@ -185,11 +185,13 @@ async function deleteDutyChange(requestId) {
     }
 }
 
-// ========== ADMIN FUNCTIONS ==========
+// ========== ADMIN FUNCTIONS - ONLY FOR ROLE "Admin" ==========
 async function deleteAllDutyChanges() {
     if (!db || !firebaseConnected) return false;
-    if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
-        showTemporaryFeedback('❌ Only supervisors can delete all requests', true);
+    
+    // Check if user is Admin
+    if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Admin') {
+        showTemporaryFeedback('❌ Only Admins can delete all requests', true);
         return false;
     }
     
@@ -199,6 +201,11 @@ async function deleteAllDutyChanges() {
     
     try {
         const snapshot = await db.collection('dutyChanges').get();
+        if (snapshot.empty) {
+            showTemporaryFeedback('ℹ️ No requests to delete');
+            return false;
+        }
+        
         const batch = db.batch();
         snapshot.forEach(doc => {
             batch.delete(doc.ref);
@@ -731,7 +738,6 @@ async function loadAllData() {
     allRequestsCache = allRequests;
     
     console.log('📊 Total requests loaded:', allRequestsCache.length);
-    console.log('📋 All requests:', allRequestsCache);
     
     updateRequestLimitDisplay();
     
@@ -860,8 +866,6 @@ async function loadMyDutyRequests() {
     const allRequests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
     const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
     
-    console.log('📋 My requests:', currentPeriodRequests.length);
-    
     if (currentPeriodRequests.length === 0) {
         container.innerHTML = '<div class="empty-state">No swap requests for current period</div>';
         return;
@@ -915,8 +919,6 @@ async function loadReceivedRequests() {
     
     const currentPeriodRequests = allRequests.filter(r => isCurrentPeriod(r.swapDate));
     
-    console.log('📩 Received pending requests for', currentLoggedInStaff.name, ':', currentPeriodRequests.length);
-    
     if (currentPeriodRequests.length === 0) {
         container.innerHTML = '<div class="empty-state">No pending requests received from other staff for current period</div>';
         return;
@@ -946,13 +948,13 @@ async function loadReceivedRequests() {
     `).join('');
 }
 
-// ========== ADMIN REQUESTS - ALL REQUESTS WITH DELETE ==========
+// ========== ADMIN REQUESTS - ONLY FOR ROLE "Admin" ==========
 async function loadAdminRequests() {
     const container = document.getElementById('adminRequestsList');
     const section = document.getElementById('adminSection');
     
-    // Only show for Supervisor/Admin
-    if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
+    // Only show for Admin role
+    if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Admin') {
         section.style.display = 'none';
         return;
     }
@@ -995,26 +997,6 @@ async function loadAdminRequests() {
             </div>
         </div>
     `).join('');
-    
-    // Add "Delete All" button if there are requests
-    if (currentPeriodRequests.length > 0) {
-        const deleteAllBtn = document.createElement('button');
-        deleteAllBtn.className = 'btn-danger';
-        deleteAllBtn.style.cssText = 'width: 100%; padding: 12px; margin-top: 15px; font-size: 1rem;';
-        deleteAllBtn.textContent = '🗑️ Delete All Requests';
-        deleteAllBtn.onclick = deleteAllDutyChanges;
-        
-        // Check if button already exists
-        const existingBtn = container.parentElement.querySelector('.delete-all-btn');
-        if (!existingBtn) {
-            const wrapper = container.parentElement;
-            const btn = document.createElement('div');
-            btn.className = 'delete-all-btn';
-            btn.style.cssText = 'margin-top: 10px;';
-            btn.appendChild(deleteAllBtn);
-            wrapper.appendChild(btn);
-        }
-    }
 }
 
 // ========== GLOBAL FUNCTIONS ==========
@@ -1065,7 +1047,13 @@ window.rejectSwapRequest = async function(id) {
     }
 };
 
+// Admin only delete function
 window.deleteDutyRequest = async function(id) {
+    // Only Admins can delete requests from admin panel
+    if (currentLoggedInStaff?.role !== 'Admin') {
+        showTemporaryFeedback('❌ Only Admins can delete requests', true);
+        return;
+    }
     if (!confirm('Delete this request?')) return;
     const ok = await deleteDutyChange(id);
     if (ok) {
@@ -1073,6 +1061,9 @@ window.deleteDutyRequest = async function(id) {
         await loadAllData();
     }
 };
+
+// Expose deleteAllDutyChanges to window for onclick
+window.deleteAllDutyChanges = deleteAllDutyChanges;
 
 // ========== TOAST ==========
 function showTemporaryFeedback(message, isError = false) {
