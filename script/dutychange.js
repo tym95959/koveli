@@ -34,13 +34,25 @@ function initStaffData() {
         contact: staff.contact || '',
         rcno: staff.id,
         pass: staff.pass || '',
-        pattern: staff.pattern || ''
+        pattern: staff.pattern || '',
+        email: staff.email || ''
     }));
     return staffData;
 }
 
 function getStaffById(id) { 
     return staffData.find(s => s.id === id); 
+}
+
+function getStaffEmail(staffId) {
+    const staff = getStaffById(staffId);
+    if (!staff) return null;
+    return staff.email || `${staff.name.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+}
+
+function getAdminEmail() {
+    const admin = staffData.find(s => s.role === 'Admin');
+    return admin?.email || 'admin@example.com';
 }
 
 async function loadCredentialsFromFirebase() {
@@ -53,6 +65,7 @@ async function loadCredentialsFromFirebase() {
             if (staff) { 
                 staff.pass = data.pass || ''; 
                 staff.pattern = data.pattern || '';
+                staff.email = data.email || staff.email || '';
             }
         });
         return true;
@@ -73,6 +86,7 @@ async function syncStaffToFirebase(staff) {
             rcno: staff.rcno || '',
             pass: staff.pass || '',
             pattern: staff.pattern || '',
+            email: staff.email || '',
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
         return true;
@@ -143,7 +157,6 @@ async function loadDutyChangeRequests(filters = {}) {
         if (filters.acceptStaffId) q = q.where('acceptStaffId', '==', filters.acceptStaffId);
         if (filters.status) q = q.where('status', '==', filters.status);
         if (filters.swapDate) q = q.where('swapDate', '==', filters.swapDate);
-        if (filters.requesterRole) q = q.where('requesterRole', '==', filters.requesterRole);
         
         const snap = await q.get();
         const results = [];
@@ -186,7 +199,7 @@ async function deleteDutyChange(requestId) {
     }
 }
 
-// ========== ADMIN FUNCTIONS - ONLY FOR ROLE "Admin" ==========
+// ========== ADMIN FUNCTIONS ==========
 async function deleteAllDutyChanges() {
     if (!db || !firebaseConnected) return false;
     
@@ -221,17 +234,173 @@ async function deleteAllDutyChanges() {
     }
 }
 
+// ========== LOADING POPUP FUNCTIONS ==========
+function showLoadingPopup(title, subtitle) {
+    const popup = document.getElementById('loadingPopup');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('loadingIcon');
+    const titleEl = document.getElementById('loadingTitle');
+    const subtitleEl = document.getElementById('loadingSubtitle');
+    
+    // Reset
+    spinner.style.display = 'block';
+    icon.style.display = 'none';
+    icon.innerHTML = '';
+    
+    titleEl.textContent = title || 'Processing...';
+    subtitleEl.textContent = subtitle || 'Please wait';
+    
+    popup.classList.add('active');
+}
+
+function showSuccessPopup(title, subtitle) {
+    const popup = document.getElementById('loadingPopup');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('loadingIcon');
+    const titleEl = document.getElementById('loadingTitle');
+    const subtitleEl = document.getElementById('loadingSubtitle');
+    
+    spinner.style.display = 'none';
+    icon.style.display = 'block';
+    icon.innerHTML = '✅';
+    icon.style.fontSize = '4rem';
+    icon.style.marginBottom = '15px';
+    icon.style.animation = 'popIn 0.5s ease';
+    
+    titleEl.textContent = title || 'Success!';
+    subtitleEl.textContent = subtitle || 'Operation completed successfully';
+}
+
+function hideLoadingPopup() {
+    document.getElementById('loadingPopup').classList.remove('active');
+}
+
+// ========== EMAIL FUNCTION WITH PRE-SET RECIPIENTS ==========
+// CONFIGURE EMAIL RECIPIENTS HERE
+const EMAIL_RECIPIENTS = {
+    // Primary recipients
+    admin: 'admin@yourcompany.com',
+    supervisor: 'supervisor@yourcompany.com',
+    // Additional recipients (CC)
+    ccList: [
+        'hr@yourcompany.com',
+        'operations@yourcompany.com'
+    ]
+};
+
+function getEmailRecipients() {
+    const recipients = [];
+    
+    if (EMAIL_RECIPIENTS.admin) {
+        recipients.push(EMAIL_RECIPIENTS.admin);
+    }
+    
+    if (EMAIL_RECIPIENTS.supervisor) {
+        recipients.push(EMAIL_RECIPIENTS.supervisor);
+    }
+    
+    if (EMAIL_RECIPIENTS.ccList && EMAIL_RECIPIENTS.ccList.length > 0) {
+        recipients.push(...EMAIL_RECIPIENTS.ccList);
+    }
+    
+    return recipients;
+}
+
+async function sendSwapEmail(swapData) {
+    try {
+        const emailBody = `
+╔═══════════════════════════════════════════════════════════════════╗
+║                         DUTY CHANGE                              ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📅 SWAP DATE : ${swapData.swapDate}
+🔄 STATUS    : ✅ ACCEPTED
+
+┌───────────────────────────────────────────────────────────────┐
+│  REQUEST STAFF                                               │
+├───────────────────────────────────────────────────────────────┤
+│  Name           : ${swapData.requesterName}                  │
+│  RC No          : ${swapData.requesterRcNo}                 │
+│  Role           : ${swapData.requesterRole}                 │
+│  Current Duty   : ${swapData.requesterDuty}                 │
+│  Changed To     : ${swapData.acceptStaffDuty}               │
+└───────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────┐
+│  ACCEPT STAFF                                                │
+├───────────────────────────────────────────────────────────────┤
+│  Name           : ${swapData.acceptStaffName}                │
+│  RC No          : ${swapData.acceptStaffRcNo}               │
+│  Role           : ${swapData.acceptStaffRole}               │
+│  Current Duty   : ${swapData.acceptStaffDuty}               │
+│  Changed To     : ${swapData.requesterDuty}                 │
+└───────────────────────────────────────────────────────────────┘
+
+🔄 SWAP SUMMARY:
+   ${swapData.requesterName} (${swapData.requesterDuty}) ↔ ${swapData.acceptStaffName} (${swapData.acceptStaffDuty})
+
+${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
+
+╔═══════════════════════════════════════════════════════════════════╗
+║        This is an automated notification from Duty Change System  ║
+╚═══════════════════════════════════════════════════════════════════╝
+        `;
+
+        // Get pre-set email recipients
+        const preSetRecipients = getEmailRecipients();
+        
+        // Get staff emails
+        const requesterStaff = getStaffById(swapData.requesterId);
+        const acceptStaff = getStaffById(swapData.acceptStaffId);
+        const requesterEmail = requesterStaff?.email;
+        const acceptStaffEmail = acceptStaff?.email;
+        
+        // Combine all recipients
+        const allRecipients = [];
+        
+        allRecipients.push(...preSetRecipients);
+        
+        if (requesterEmail && !allRecipients.includes(requesterEmail)) {
+            allRecipients.push(requesterEmail);
+        }
+        
+        if (acceptStaffEmail && !allRecipients.includes(acceptStaffEmail)) {
+            allRecipients.push(acceptStaffEmail);
+        }
+
+        if (allRecipients.length === 0) {
+            console.warn('No valid email recipients found');
+            return false;
+        }
+
+        const response = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to: allRecipients.join(','),
+                subject: `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`,
+                text: emailBody
+            })
+        });
+
+        const result = await response.json();
+        console.log('Email sent:', result);
+        return result.success;
+    } catch (error) {
+        console.error('Email error:', error);
+        return false;
+    }
+}
+
 // ========== REQUEST VALIDATION FUNCTIONS ==========
 function canRequestSwap(staffId, requestDuty, swapDate, acceptStaffId, allRequests) {
     const errors = [];
     
-    // 1. Check if Off Duty swap - these don't count towards limits
     const isOffDutySwap = isOffDuty(requestDuty);
-    
-    // Get all requests for this staff
     const staffRequests = allRequests.filter(r => r.requesterId === staffId);
     
-    // 2. Check if already requested for this date (only one per day)
     const existingDateRequest = staffRequests.find(r => 
         r.swapDate === swapDate && 
         (r.status === 'pending' || r.status === 'approved')
@@ -240,7 +409,6 @@ function canRequestSwap(staffId, requestDuty, swapDate, acceptStaffId, allReques
         errors.push('You already have a pending/approved swap request for this date');
     }
     
-    // 3. Check if already changed this original duty
     const existingDutyChange = staffRequests.find(r => 
         r.requesterDuty === requestDuty && 
         (r.status === 'pending' || r.status === 'approved')
@@ -249,7 +417,6 @@ function canRequestSwap(staffId, requestDuty, swapDate, acceptStaffId, allReques
         errors.push('You have already requested to change this duty');
     }
     
-    // 4. Check month half limit (2 per half) - only for duty changes, not Off Duty
     if (!isOffDutySwap) {
         const currentHalf = getMonthHalf(swapDate);
         const halfRequests = staffRequests.filter(r => 
@@ -263,7 +430,6 @@ function canRequestSwap(staffId, requestDuty, swapDate, acceptStaffId, allReques
         }
     }
     
-    // 5. Check same role validation
     const requester = getStaffById(staffId);
     const acceptStaff = getStaffById(acceptStaffId);
     if (requester && acceptStaff && requester.role !== acceptStaff.role) {
@@ -281,26 +447,18 @@ function getRequestLimitInfo(staffId, allRequests) {
     const staffRequests = allRequests.filter(r => r.requesterId === staffId);
     const currentHalf = getCurrentMonthHalf();
     
-    // Count for current half (excluding Off Duty)
     const halfRequests = staffRequests.filter(r => 
         getMonthHalf(r.swapDate) === currentHalf && 
         !isOffDuty(r.requesterDuty) &&
         (r.status === 'pending' || r.status === 'approved')
     );
     
-    // Count pending and approved
     let pendingCount = 0;
     let approvedCount = 0;
-    let usedCount = 0;
     
     staffRequests.forEach(r => {
-        if (r.status === 'approved') {
-            approvedCount++;
-            if (!isOffDuty(r.requesterDuty)) usedCount++;
-        } else if (r.status === 'pending') {
-            pendingCount++;
-            if (!isOffDuty(r.requesterDuty)) usedCount++;
-        }
+        if (r.status === 'approved') approvedCount++;
+        else if (r.status === 'pending') pendingCount++;
     });
     
     return {
@@ -859,7 +1017,6 @@ async function submitDutyChange() {
         return; 
     }
     
-    // Validate request
     const validation = canRequestSwap(
         currentLoggedInStaff.id, 
         requestDuty, 
@@ -997,7 +1154,7 @@ async function loadReceivedRequests() {
     `).join('');
 }
 
-// ========== ADMIN REQUESTS - ONLY FOR ROLE "Admin" ==========
+// ========== ADMIN REQUESTS ==========
 async function loadAdminRequests() {
     const container = document.getElementById('adminRequestsList');
     const section = document.getElementById('adminSection');
@@ -1069,10 +1226,68 @@ window.acceptSwapRequest = async function(id) {
     }
     
     if (!confirm('Accept this swap request?')) return;
-    const ok = await updateDutyChangeStatus(id, 'approved');
-    if (ok) {
-        showTemporaryFeedback('✅ Swap request accepted!');
-        await loadAllData();
+    
+    showLoadingPopup('⏳ Processing Duty Change', 'Please wait while we process your request...');
+    
+    try {
+        const ok = await updateDutyChangeStatus(id, 'approved');
+        
+        if (!ok) {
+            hideLoadingPopup();
+            showTemporaryFeedback('❌ Failed to accept request', true);
+            return;
+        }
+        
+        showLoadingPopup('📧 Sending Notification', 'Sending email notifications to supervisors...');
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const swapData = {
+            swapDate: request.swapDate,
+            requesterId: request.requesterId,
+            requesterName: request.requesterName,
+            requesterRcNo: request.requesterRcNo || 'N/A',
+            requesterRole: request.requesterRole || 'Staff',
+            requesterDuty: request.requesterDuty,
+            acceptStaffId: request.acceptStaffId,
+            acceptStaffName: request.acceptStaffName,
+            acceptStaffRcNo: request.acceptStaffRcNo || 'N/A',
+            acceptStaffRole: request.acceptStaffRole || 'Staff',
+            acceptStaffDuty: request.acceptStaffDuty,
+            reason: request.reason || ''
+        };
+        
+        const emailSent = await sendSwapEmail(swapData);
+        
+        if (emailSent) {
+            showSuccessPopup(
+                '✅ Duty Change Approved!',
+                `Your duty change request has been approved and sent to supervisor.\n\n` +
+                `${request.requesterName} (${request.requesterDuty}) ↔ ${request.acceptStaffName} (${request.acceptStaffDuty})`
+            );
+            
+            const popupContent = document.querySelector('#loadingPopup .loading-content');
+            const existingBtn = popupContent.querySelector('.btn-close-popup');
+            if (!existingBtn) {
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'btn-close-popup';
+                closeBtn.textContent = 'OK';
+                closeBtn.onclick = function() {
+                    hideLoadingPopup();
+                    loadAllData();
+                };
+                popupContent.appendChild(closeBtn);
+            }
+        } else {
+            hideLoadingPopup();
+            showTemporaryFeedback('✅ Duty change approved! (Email notification failed)', true);
+            await loadAllData();
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        hideLoadingPopup();
+        showTemporaryFeedback('❌ Error processing request', true);
     }
 };
 
