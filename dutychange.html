@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
-    <title>Staff Portal | Daily Checklist with Duty Change</title>
+    <title>Duty Change Request</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <!-- html2pdf for PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Import firebase-config.js -->
     <script src="./firebase-config.js"></script>
     <style>
@@ -27,7 +25,7 @@
         }
 
         .app-card {
-            max-width: 95%;
+            max-width: 800px;
             width: 100%;
             margin: 0 auto;
             background: #fffcf0;
@@ -35,68 +33,54 @@
             box-shadow: 0 25px 40px -12px rgba(120, 80, 20, 0.25);
             overflow: hidden;
             border: 1px solid #f3de9f;
+            padding: 30px;
         }
 
-        .tabs-header {
+        .header {
             display: flex;
-            background: #fff7e8;
-            border-bottom: 1px solid #f1e2bc;
-            padding: 8px 24px 0 24px;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0e2be;
             flex-wrap: wrap;
+            gap: 15px;
         }
 
-        .tabs-buttons {
-            display: flex;
-            gap: 20px;
-            flex: 1;
-            flex-wrap: wrap;
-        }
-
-        .tab-btn {
-            background: transparent;
-            border: none;
-            font-size: 1.2rem;
-            font-weight: 600;
-            padding: 16px 8px 14px 8px;
-            color: #b8860b;
-            cursor: pointer;
-            transition: 0.2s ease;
-            border-radius: 32px 32px 0 0;
-            letter-spacing: -0.3px;
-        }
-
-        .tab-btn.active {
-            color: #8b6508;
-            background: #fffcf0;
-            border-bottom: 3px solid #e4b822;
+        .header h1 {
+            color: #b87c1a;
+            font-size: 1.8rem;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        .header-buttons {
+        .nav-buttons {
             display: flex;
             gap: 12px;
+            flex-wrap: wrap;
             align-items: center;
         }
 
-        .checklist-btn {
-            background: #2c6e2c;
-            color: white;
+        .nav-btn {
+            background: #e4bc78;
+            color: #5c3e0e;
             border: none;
             border-radius: 40px;
-            padding: 8px 20px;
-            font-size: 0.85rem;
+            padding: 10px 24px;
             font-weight: 600;
             cursor: pointer;
             transition: 0.2s;
-            display: flex;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
 
-        .checklist-btn:hover {
-            background: #1e5a1e;
+        .nav-btn:hover {
+            background: #d4aa5a;
             transform: scale(1.02);
         }
 
@@ -185,23 +169,12 @@
             background: #faf0df;
         }
 
-        .tab-content {
-            padding: 24px 20px 32px 20px;
-            background: #fffcf0;
-        }
-
-        .view-panel {
-            display: none;
-            animation: fadeIn 0.25s ease;
-        }
-
-        .view-panel.active-panel {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px);}
-            to { opacity: 1; transform: translateY(0);}
+        .login-section {
+            background: #fffef7;
+            border-radius: 28px;
+            padding: 20px;
+            border: 1px solid #f3e5bd;
+            margin-bottom: 24px;
         }
 
         .field-group {
@@ -218,11 +191,7 @@
             margin-bottom: 12px;
         }
 
-        select, input, button {
-            font-family: inherit;
-        }
-
-        select {
+        select, input {
             width: 100%;
             padding: 16px 20px;
             font-size: 1rem;
@@ -233,11 +202,21 @@
             color: #5c4311;
             cursor: pointer;
             appearance: none;
+            transition: 0.2s;
+            font-family: inherit;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #e4bc78;
+            box-shadow: 0 0 0 3px rgba(228,188,120,0.3);
+        }
+
+        select {
             background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="%23c9a03e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
             background-repeat: no-repeat;
             background-position: right 20px center;
             background-size: 20px;
-            transition: 0.2s;
         }
 
         .current-user-badge {
@@ -674,250 +653,9 @@
             margin-top: 20px;
         }
 
-        .sync-status {
-            font-size: 0.7rem;
-            margin-top: 8px;
-            text-align: center;
-            padding: 4px 12px;
-            border-radius: 20px;
-            display: inline-block;
-        }
-
-        .sync-status.connected {
-            background: #e8f0e8;
-            color: #2c6e2c;
-        }
-
-        .sync-status.disconnected {
-            background: #fee8e8;
-            color: #c25d2e;
-        }
-
-        /* Loading Animation */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            visibility: hidden;
-            opacity: 0;
-            transition: visibility 0.3s, opacity 0.3s;
-        }
-
-        .loading-overlay.active {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        .loading-container {
-            text-align: center;
-            position: relative;
-        }
-
-        .pulse-ring {
-            position: relative;
-            width: 200px;
-            height: 200px;
-            margin: 0 auto;
-        }
-
-        .ring {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 3px solid transparent;
-            animation: pulse 2s ease-out infinite;
-        }
-
-        .ring:nth-child(1) {
-            border-top-color: #e4bc78;
-            border-left-color: #e4bc78;
-            animation-delay: 0s;
-        }
-
-        .ring:nth-child(2) {
-            border-right-color: #ff6b6b;
-            border-bottom-color: #ff6b6b;
-            animation-delay: 0.5s;
-        }
-
-        .ring:nth-child(3) {
-            border-top-color: #4ecdc4;
-            border-right-color: #4ecdc4;
-            animation-delay: 1s;
-        }
-
-        .ring:nth-child(4) {
-            border-bottom-color: #96ceb4;
-            border-left-color: #96ceb4;
-            animation-delay: 1.5s;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(0.3); opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { transform: scale(1.2); opacity: 0; }
-        }
-
-        .loading-logo {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #e4bc78, #b8860b);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            animation: rotate 2s linear infinite;
-            box-shadow: 0 0 20px rgba(228, 188, 120, 0.5);
-        }
-
-        @keyframes rotate {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        .loading-text {
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #e4bc78, #ff6b6b, #4ecdc4, #96ceb4);
-            background-size: 300% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            animation: gradientShift 3s linear infinite;
-            margin-top: 30px;
-            letter-spacing: 2px;
-        }
-
-        @keyframes gradientShift {
-            0% { background-position: 0% center; }
-            100% { background-position: 300% center; }
-        }
-
-        .loading-subtitle {
-            font-size: 0.85rem;
-            color: #b28b44;
-            margin-top: 15px;
-            font-weight: 500;
-            letter-spacing: 1px;
-        }
-
-        .loading-progress-bar {
-            width: 250px;
-            height: 3px;
-            background: rgba(228, 188, 120, 0.2);
-            border-radius: 3px;
-            margin: 20px auto 0;
-            overflow: hidden;
-        }
-
-        .loading-progress-fill {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, #e4bc78, #ff6b6b, #4ecdc4);
-            border-radius: 3px;
-            transition: width 0.3s ease;
-        }
-
-        .loading-percentage {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #e4bc78;
-            margin-top: 10px;
-            font-family: monospace;
-        }
-
-        /* Checklist modal */
-        .report-modal .modal-container {
-            max-width: 650px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .checklist-content {
-            text-align: left;
-            font-size: 0.85rem;
-            margin-top: 20px;
-        }
-
-        .checklist-section {
-            margin-bottom: 20px;
-            padding: 12px;
-            background: #fffcf5;
-            border-radius: 20px;
-            border: 1px solid #f0e2be;
-        }
-
-        .checklist-section h4 {
-            color: #b87c1a;
-            margin-bottom: 10px;
-            font-size: 1rem;
-        }
-
-        .checklist-item {
-            padding: 6px 0;
-            border-bottom: 1px solid #f0e0bc;
-            font-size: 0.8rem;
-        }
-
-        .checklist-status {
-            display: inline-block;
-            width: 60px;
-            font-weight: 600;
-        }
-
-        .status-completed { color: #2c6e2c; }
-        .status-pending { color: #c25d2e; }
-
-        .print-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 15px;
-        }
-
-        .print-btn, .pdf-btn {
-            flex: 1;
-            background: #e4bc78;
-            border: none;
-            border-radius: 40px;
-            padding: 10px 20px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: 0.2s;
-        }
-
-        .print-btn:hover, .pdf-btn:hover {
-            background: #d4aa5a;
-            transform: scale(1.02);
-        }
-
         @media (max-width: 650px) {
             .app-card {
-                padding: 0;
-            }
-            .tabs-header {
-                padding: 8px 12px 0 12px;
-            }
-            .tab-btn {
-                font-size: 1rem;
-                padding: 12px 6px 10px 6px;
-            }
-            .tab-content {
-                padding: 16px 12px 24px 12px;
+                padding: 15px;
             }
             .field-row {
                 flex-direction: column;
@@ -936,167 +674,99 @@
             .request-actions {
                 justify-content: flex-end;
             }
-            .header-buttons {
-                flex-wrap: wrap;
-                justify-content: flex-end;
+            .header {
+                flex-direction: column;
+                align-items: stretch;
             }
-            .checklist-btn {
-                font-size: 0.75rem;
-                padding: 6px 14px;
+            .nav-buttons {
+                justify-content: stretch;
             }
-        }
-
-        @keyframes highlight {
-            0% { opacity: 0.5; transform: scale(0.98); }
-            100% { opacity: 1; transform: scale(1); }
+            .nav-btn {
+                flex: 1;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
 
 <div class="app-card">
-    <div class="tabs-header">
-        <div class="tabs-buttons">
-            <button class="tab-btn active" data-tab="staff">👥 Staff</button>
-            <button class="tab-btn" data-tab="duty">🔄 Duty Change</button>
-            <button class="tab-btn" data-tab="supervisor">🛡️ Supervisor</button>
-        </div>
-        <div class="header-buttons">
-            <button class="checklist-btn" id="generateChecklistBtn">📋 View Checklist</button>
+    <div class="header">
+        <h1>🔄 Duty Change</h1>
+        <div class="nav-buttons">
+            <a href="staff-register.html" class="nav-btn">👤 Register</a>
             <div class="profile-btn-container">
                 <div class="profile-icon-btn" id="profileButton">
                     <span class="profile-avatar" id="profileAvatar">👤</span>
-                    <span class="profile-name-short" id="profileShortName">Staff</span>
+                    <span class="profile-name-short" id="profileShortName">Login</span>
                 </div>
                 <div class="profile-menu" id="profileMenu">
-                    <div class="profile-menu-item" id="profileViewAction">📋 View my profile</div>
+                    <div class="profile-menu-item" id="profileViewAction">📋 View Profile</div>
                     <div class="profile-menu-item" id="profileChangePass">🔑 Change Login Code</div>
-                    <div class="profile-menu-item" id="profileSwitchRole">🔄 Switch to Supervisor</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="tab-content">
-        <!-- Persistent Date/Shift Banner -->
-        <div id="globalSettingsBanner" style="background: linear-gradient(135deg, #f0e0bc 0%, #e8d6a8 100%); border-radius: 20px; padding: 12px 18px; margin-bottom: 20px; border-left: 4px solid #e4bc78; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-            <div style="display: flex; gap: 25px; flex-wrap: wrap;">
-                <div>
-                    <span style="font-size: 0.7rem; color: #6b4c1a; text-transform: uppercase; font-weight: 600;">📅 Active Date</span>
-                    <div style="font-weight: 800; font-size: 1rem; color: #5c4311;" id="globalActiveDate">Loading...</div>
-                </div>
-                <div>
-                    <span style="font-size: 0.7rem; color: #6b4c1a; text-transform: uppercase; font-weight: 600;">⏰ Active Shift</span>
-                    <div style="font-weight: 800; font-size: 1rem; color: #5c4311;" id="globalActiveShift">Loading...</div>
-                </div>
-            </div>
-            <div style="font-size: 0.7rem; color: #b8860b; background: #fffef7; padding: 4px 12px; border-radius: 20px;">
-                🔒 Set by Supervisor
-            </div>
+    <!-- Login Section -->
+    <div class="login-section">
+        <div class="field-group">
+            <label>👤 Select your name to login</label>
+            <select id="loginStaffSelect">
+                <option value="">-- Select Staff Member --</option>
+            </select>
         </div>
-
-        <!-- Staff Panel -->
-        <div id="staffViewPanel" class="view-panel active-panel">
-            <div class="field-group">
-                <label>👤 Select staff member</label>
-                <select id="staffSelect" class="staff-dropdown">
-                    <option value="">-- Select Staff Member --</option>
-                </select>
-            </div>
-            <div id="currentUserDisplay" class="current-user-badge" style="display: none;">
-                ✅ Logged in as: <span id="currentUserName">—</span>
-            </div>
-            <div id="dailyTasksContainer" style="padding: 20px 0;"></div>
-            <div class="footer-note">✅ Each task can be completed once.</div>
-            <div id="syncStatusStaff" class="sync-status disconnected" style="margin-top:12px;">⏳ Loading tasks...</div>
-        </div>
-
-        <!-- Duty Change Panel -->
-        <div id="dutyViewPanel" class="view-panel">
-            <div class="field-group">
-                <label>👤 Select your name</label>
-                <select id="dutyStaffSelect" class="staff-dropdown">
-                    <option value="">-- Select Staff --</option>
-                </select>
-            </div>
-            <div id="dutyUserBadge" class="current-user-badge" style="display: none; margin-bottom: 18px;">✅ Logged in as: <span id="dutyUserName">—</span></div>
-
-            <div class="duty-card">
-                <h3>📝 Request Duty Change</h3>
-                <div class="field-row">
-                    <label>📅 Duty Date</label>
-                    <input type="date" id="dutyDate" value="">
-                </div>
-                <div class="field-row">
-                    <label>⏰ Duty Shift</label>
-                    <select id="dutyShift">
-                        <option value="Morning">🌅 Morning</option>
-                        <option value="Evening">🌙 Evening</option>
-                    </select>
-                </div>
-                <div class="field-row">
-                    <label>👤 Accept Staff</label>
-                    <select id="dutyAcceptStaff">
-                        <option value="">-- Select --</option>
-                    </select>
-                </div>
-                <div class="field-row">
-                    <label>🆔 RC Number</label>
-                    <input type="text" id="dutyRcNo" readonly placeholder="Auto from profile" style="background:#f3efe6;">
-                </div>
-                <button class="btn-primary" id="submitDutyChangeBtn" disabled>📤 Submit Request</button>
-            </div>
-
-            <div class="duty-card">
-                <h3>📋 My Duty Change Requests</h3>
-                <div id="myDutyRequestsList">
-                    <div class="empty-state">Login to see your requests</div>
-                </div>
-            </div>
-
-            <div class="duty-card" id="supervisorDutySection" style="display: none;">
-                <h3>🛡️ All Requests (Supervisor)</h3>
-                <div id="allDutyRequestsList">
-                    <div class="empty-state">No requests pending</div>
-                </div>
-            </div>
-            <div class="footer-note">🔄 Duty change requests require supervisor approval</div>
-        </div>
-
-        <!-- Supervisor Panel -->
-        <div id="supervisorViewPanel" class="view-panel">
-            <div class="field-group">
-                <label>🔐 Select staff member (supervisor)</label>
-                <select id="supervisorSelect" class="staff-dropdown">
-                    <option value="">-- Select Staff Member --</option>
-                </select>
-            </div>
-            <div class="info-card" style="background: #fffef7; border-radius: 32px; padding: 22px 26px; border: 1px solid #f3e5bd;">
-                <div class="info-title" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; color: #c49a2b; margin-bottom: 18px;">🛡️ SUPERVISOR DASHBOARD</div>
-                <div id="supervisorDetailsArea"></div>
-                <div class="footer-note" style="margin-top: 20px;">🛡️ Supervisor can change date, shift, manage break requests, staff allocations, and attendance</div>
-            </div>
+        <div id="currentUserDisplay" class="current-user-badge" style="display: none;">
+            ✅ Logged in as: <span id="currentUserName">—</span>
         </div>
     </div>
-</div>
 
-<!-- Loading Animation -->
-<div id="loadingPopup" class="loading-overlay">
-    <div class="loading-container">
-        <div class="pulse-ring">
-            <div class="ring"></div>
-            <div class="ring"></div>
-            <div class="ring"></div>
-            <div class="ring"></div>
-            <div class="loading-logo">✨</div>
+    <!-- Duty Change Request Form -->
+    <div class="duty-card">
+        <h3>📝 Request Duty Change</h3>
+        <div id="dutyFormContainer">
+            <div class="field-row">
+                <label>📅 Duty Date</label>
+                <input type="date" id="dutyDate" value="">
+            </div>
+            <div class="field-row">
+                <label>⏰ Duty Shift</label>
+                <select id="dutyShift">
+                    <option value="Morning">🌅 Morning</option>
+                    <option value="Evening">🌙 Evening</option>
+                </select>
+            </div>
+            <div class="field-row">
+                <label>👤 Accept Staff</label>
+                <select id="dutyAcceptStaff">
+                    <option value="">-- Select --</option>
+                </select>
+            </div>
+            <div class="field-row">
+                <label>🆔 RC Number</label>
+                <input type="text" id="dutyRcNo" readonly placeholder="Auto from profile" style="background:#f3efe6;">
+            </div>
+            <button class="btn-primary" id="submitDutyChangeBtn" disabled>📤 Submit Request</button>
         </div>
-        <div class="loading-text" id="loadingText">Staff Portal</div>
-        <div class="loading-subtitle" id="loadingSubtitle">Preparing your workspace...</div>
-        <div class="loading-progress-bar">
-            <div class="loading-progress-fill" id="loadingProgressFill"></div>
-        </div>
-        <div class="loading-percentage" id="loadingPercentage">0%</div>
     </div>
+
+    <!-- My Requests -->
+    <div class="duty-card">
+        <h3>📋 My Duty Change Requests</h3>
+        <div id="myDutyRequestsList">
+            <div class="empty-state">Login to see your requests</div>
+        </div>
+    </div>
+
+    <!-- Supervisor: All Requests -->
+    <div class="duty-card" id="supervisorSection" style="display: none;">
+        <h3>🛡️ All Requests (Supervisor)</h3>
+        <div id="allDutyRequestsList">
+            <div class="empty-state">No requests pending</div>
+        </div>
+    </div>
+
+    <div class="footer-note">🔄 Duty change requests require supervisor approval</div>
 </div>
 
 <!-- Password Modal -->
@@ -1116,14 +786,16 @@
                 <canvas id="patternCanvas" width="260" height="260"></canvas>
             </div>
             <div class="pattern-status" id="patternStatus">✏️ Draw pattern</div>
-            <div class="pattern-actions"><button id="resetPatternBtn" class="action-btn">⟳ Reset</button></div>
+            <div class="pattern-actions">
+                <button id="resetPatternBtn" class="action-btn">⟳ Reset</button>
+            </div>
         </div>
         <div id="numericTab" class="tab-pane">
             <div class="numeric-display" id="numericInput">●●●●</div>
             <div class="keypad-grid" id="keypad"></div>
             <div style="display: flex; gap: 12px;">
-                <button id="clearNumericBtn" class="action-btn" style="flex:1">Clear</button>
-                <button id="deleteNumericBtn" class="action-btn" style="flex:1">⌫</button>
+                <button id="clearNumericBtn" class="action-btn">Clear</button>
+                <button id="deleteNumericBtn" class="action-btn">⌫</button>
             </div>
         </div>
     </div>
@@ -1146,38 +818,23 @@
                 <canvas id="changePatternCanvas" width="260" height="260"></canvas>
             </div>
             <div class="pattern-status" id="changePatternStatus">📌 Draw new pattern</div>
-            <div class="pattern-actions"><button id="resetChangePatternBtn" class="action-btn">⟳ Reset</button></div>
+            <div class="pattern-actions">
+                <button id="resetChangePatternBtn" class="action-btn">⟳ Reset</button>
+            </div>
         </div>
         <div id="changePinPane" class="tab-pane">
             <div class="numeric-display" id="changePinDisplay">●●●●●●</div>
             <div class="keypad-grid" id="changePinKeypad"></div>
             <div style="display: flex; gap: 12px;">
-                <button id="clearChangePinBtn" class="action-btn" style="flex:1">Clear</button>
-                <button id="deleteChangePinBtn" class="action-btn" style="flex:1">⌫</button>
+                <button id="clearChangePinBtn" class="action-btn">Clear</button>
+                <button id="deleteChangePinBtn" class="action-btn">⌫</button>
             </div>
         </div>
-        <div class="confirm-buttons" style="display: flex; gap: 12px; margin-top: 20px;">
-            <button id="cancelChangeBtn" class="action-btn" style="flex:1;">Cancel</button>
-            <button id="saveNewCodeBtn" class="action-btn" style="flex:1; background:#e4bc78;">💾 Save</button>
+        <div class="confirm-buttons">
+            <button id="cancelChangeBtn" class="action-btn">Cancel</button>
+            <button id="saveNewCodeBtn" class="action-btn" style="background:#e4bc78;">💾 Save</button>
         </div>
         <div id="changeFeedback" class="feedback-msg"></div>
-    </div>
-</div>
-
-<!-- Checklist Modal -->
-<div id="checklistModal" class="modal-overlay report-modal">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3>📋 Daily Checklist Report</h3>
-            <button class="modal-close" id="closeChecklistBtn">&times;</button>
-        </div>
-        <div id="checklistContent" class="checklist-content">
-            <div class="spinner" style="width:40px; height:40px; margin:20px auto;"></div>
-        </div>
-        <div class="print-buttons">
-            <button class="print-btn" id="printChecklistBtn">🖨️ Print</button>
-            <button class="pdf-btn" id="pdfChecklistBtn">📄 Export PDF</button>
-        </div>
     </div>
 </div>
 
@@ -1185,34 +842,13 @@
 <div id="messageToast" class="message-toast"></div>
 
 <script type="module">
+    // ========== IMPORT STAFF LIST ==========
     import { staffList } from './staff.js';
     
-    // ========== CONFIG ==========
+    // ========== FIREBASE ==========
     let db = null;
     let firebaseConnected = false;
-    let currentLoggedInStaff = null;
-    let staffData = [];
-    let pendingAuthResolve = null;
-    let pendingAuth = { staff: null, viewType: null, selectEl: null, prevDropdownValue: null };
-    
-    // ========== TASKS (simplified) ==========
-    const MAIN_DAILY_TASKS = [
-        { id: "noticeboard", task: "📋 Read the noticeboard", type: "signoff", signoffs: [] },
-        { id: "stationaries", task: "📋 Make sure all the stationaries are available", type: "complete", completedBy: null, completedAt: null },
-        { id: "passengerLoad", task: "📋 Briefed on daily passenger load", type: "signoff", signoffs: [] },
-        { id: "shiftOpen", task: "📋 Check the system and make sure the correct shift is open", type: "complete", completedBy: null, completedAt: null },
-        { id: "waterFeature", task: "📋 Make sure the water feature is well maintained", type: "complete", completedBy: null, completedAt: null },
-    ];
 
-    const FB_DAILY_TASKS = [
-        { id: "fb_cleanliness", task: "🍽️ Check and maintain the cleanliness of buffet", type: "signoff", signoffs: [] },
-        { id: "fb_refrigerator", task: "🍽️ Re-fill the refrigerator", type: "signoff", signoffs: [] },
-        { id: "fb_washItems", task: "🍽️ Wash milk Jar, buffet tongs and plates", type: "complete", completedBy: null, completedAt: null },
-        { id: "fb_cleanToaster", task: "🍽️ Clean the toaster, tray", type: "complete", completedBy: null, completedAt: null },
-        { id: "fb_disinfect", task: "🍽️ Disinfect all touched surfaces", type: "complete", completedBy: null, completedAt: null },
-    ];
-    
-    // ========== FIREBASE INIT ==========
     function initFirebase() {
         if (typeof firebase !== 'undefined' && firebase.firestore) {
             try {
@@ -1229,6 +865,11 @@
     }
 
     // ========== STAFF DATA ==========
+    let staffData = [];
+    let currentLoggedInStaff = null;
+    let pendingAuthResolve = null;
+    let pendingAuth = { staff: null, viewType: null, selectEl: null, prevDropdownValue: null };
+
     function initStaffData() {
         staffData = staffList.map(staff => ({
             id: staff.id, 
@@ -1340,496 +981,6 @@
             console.error('Delete error:', e);
             return false;
         }
-    }
-
-    // ========== SETTINGS ==========
-    async function loadSupervisorSettings() {
-        if (!db || !firebaseConnected) return null;
-        try {
-            const docRef = db.collection('appSettings').doc('supervisorSettings');
-            const doc = await docRef.get();
-            if (doc.exists) {
-                const data = doc.data();
-                return { date: data.selectedDate, shift: data.selectedShift };
-            }
-            return null;
-        } catch(e) { 
-            console.warn("Load supervisor settings error:", e); 
-            return null;
-        }
-    }
-
-    async function getCurrentActiveSettings() {
-        const settings = await loadSupervisorSettings();
-        if (settings && settings.date && settings.shift) {
-            return settings;
-        }
-        return {
-            date: new Date().toISOString().split('T')[0],
-            shift: 'Morning'
-        };
-    }
-
-    async function updateGlobalBanner() {
-        const settings = await getCurrentActiveSettings();
-        const dateElement = document.getElementById('globalActiveDate');
-        const shiftElement = document.getElementById('globalActiveShift');
-        
-        if (dateElement) {
-            dateElement.innerHTML = settings.date;
-        }
-        if (shiftElement) {
-            shiftElement.innerHTML = settings.shift === 'Morning' ? '🌅 Morning Shift' : '🌙 Evening Shift';
-        }
-    }
-
-    // ========== TASKS ==========
-    function cleanTaskData(tasks) {
-        return tasks.map(task => {
-            const cleaned = { ...task };
-            if (cleaned.signoffs === undefined) cleaned.signoffs = [];
-            if (cleaned.submissions === undefined) cleaned.submissions = [];
-            if (cleaned.completedBy === undefined) cleaned.completedBy = null;
-            if (cleaned.completedAt === undefined) cleaned.completedAt = null;
-            return cleaned;
-        });
-    }
-
-    async function saveAllTasksToFirebase() {
-        if (!db || !firebaseConnected || !currentLoggedInStaff) return false;
-        try {
-            const settings = await getCurrentActiveSettings();
-            const activeDate = settings.date;
-            const activeShift = settings.shift;
-            const cleanMainTasks = cleanTaskData(MAIN_DAILY_TASKS);
-            const cleanFbTasks = cleanTaskData(FB_DAILY_TASKS);
-            
-            await db.collection('taskRecords').doc(`${activeDate}_${activeShift}_${currentLoggedInStaff.id}`).set({
-                staffId: currentLoggedInStaff.id,
-                staffName: currentLoggedInStaff.name,
-                date: activeDate,
-                shift: activeShift,
-                mainTasks: cleanMainTasks,
-                fbTasks: cleanFbTasks,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            return true;
-        } catch(e) { 
-            console.error("Save error:", e); 
-            return false;
-        }
-    }
-
-    async function loadTasksFromFirebase() {
-        if (!db || !firebaseConnected || !currentLoggedInStaff) return false;
-        try {
-            const settings = await getCurrentActiveSettings();
-            const activeDate = settings.date;
-            const activeShift = settings.shift;
-            
-            const docRef = db.collection('taskRecords').doc(`${activeDate}_${activeShift}_${currentLoggedInStaff.id}`);
-            const doc = await docRef.get();
-            
-            // Reset tasks
-            MAIN_DAILY_TASKS.forEach(task => {
-                if (task.type === 'complete') { task.completedBy = null; task.completedAt = null; }
-                else if (task.type === 'signoff') { task.signoffs = []; }
-            });
-            FB_DAILY_TASKS.forEach(task => {
-                if (task.type === 'complete') { task.completedBy = null; task.completedAt = null; }
-                else if (task.type === 'signoff') { task.signoffs = []; }
-            });
-            
-            if (doc.exists) {
-                const data = doc.data();
-                if (data.mainTasks && Array.isArray(data.mainTasks)) {
-                    data.mainTasks.forEach((savedTask, idx) => {
-                        if (MAIN_DAILY_TASKS[idx]) {
-                            MAIN_DAILY_TASKS[idx].completedBy = savedTask.completedBy || null;
-                            MAIN_DAILY_TASKS[idx].completedAt = savedTask.completedAt || null;
-                            MAIN_DAILY_TASKS[idx].signoffs = savedTask.signoffs || [];
-                        }
-                    });
-                }
-                if (data.fbTasks && Array.isArray(data.fbTasks)) {
-                    data.fbTasks.forEach((savedTask, idx) => {
-                        if (FB_DAILY_TASKS[idx]) {
-                            FB_DAILY_TASKS[idx].completedBy = savedTask.completedBy || null;
-                            FB_DAILY_TASKS[idx].completedAt = savedTask.completedAt || null;
-                            FB_DAILY_TASKS[idx].signoffs = savedTask.signoffs || [];
-                        }
-                    });
-                }
-            }
-            return true;
-        } catch(e) { 
-            console.warn("Load error:", e); 
-            return false;
-        }
-    }
-
-    function renderTasks() {
-        const container = document.getElementById('dailyTasksContainer');
-        if (!container) return;
-        
-        if (!currentLoggedInStaff) {
-            container.innerHTML = '<div style="text-align:center; padding:40px; color:#b28b44;">👈 Please select a staff member to login</div>';
-            return;
-        }
-
-        let html = `
-            <div style="background: #f8e9cf; border-radius: 16px; padding: 10px 15px; margin-bottom: 20px;">
-                <div style="font-weight: 700; color: #5c4311;">👤 ${currentLoggedInStaff.name}</div>
-            </div>
-            <div class="task-category" style="background: #fffef7; border-radius: 28px; padding: 20px; border: 1px solid #f3e5bd;">
-                <div class="category-title" style="font-size: 1.3rem; font-weight: 700; color: #b87c1a; margin-bottom: 16px; border-bottom: 2px solid #f0e0bc; padding-bottom: 8px;">📋 MAIN TASKS</div>
-        `;
-
-        MAIN_DAILY_TASKS.forEach(task => {
-            if (task.type === 'complete') {
-                const isCompleted = task.completedBy !== null;
-                html += `
-                    <div class="task-item" style="background: #fffcf5; border-radius: 20px; padding: 14px 16px; border: 1px solid #f0e2be; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
-                        <div class="task-text" style="font-size: 0.95rem; color: #5c4311; font-weight: 500; flex: 1;">${task.task}</div>
-                        <div class="task-actions">
-                            ${!isCompleted ? 
-                                `<button class="task-btn" onclick="window.completeTask('${task.id}')" style="background: #f8e9cf; border: none; border-radius: 40px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; color: #b8860b; cursor: pointer;">✅ Mark Complete</button>` : 
-                                `<button class="task-btn completed" disabled style="background: #2c6e2c; color: white; cursor: not-allowed; opacity: 0.7; border: none; border-radius: 40px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600;">✅ Done by ${task.completedBy}</button>`}
-                        </div>
-                    </div>
-                `;
-            } else if (task.type === 'signoff') {
-                const hasSigned = task.signoffs.some(s => s.signedBy === currentLoggedInStaff.name);
-                html += `
-                    <div class="task-item" style="background: #fffcf5; border-radius: 20px; padding: 14px 16px; border: 1px solid #f0e2be; margin-bottom: 10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-                            <div class="task-text" style="font-size: 0.95rem; color: #5c4311; font-weight: 500;">${task.task}</div>
-                            ${!hasSigned ? 
-                                `<button class="signoff-btn" onclick="window.addSignoff('${task.id}')" style="background: #e4bc78; border: none; border-radius: 30px; padding: 8px 16px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #5c3e0e;">✍️ Signoff</button>` :
-                                `<button class="signoff-btn completed" disabled style="background: #2c6e2c; color: white; cursor: not-allowed; opacity: 0.7; border: none; border-radius: 30px; padding: 8px 16px; font-size: 0.85rem; font-weight: 600;">✅ Signed</button>`}
-                        </div>
-                        ${task.signoffs.length > 0 ? `<div style="margin-top:8px; font-size:0.75rem; color:#2c6e2c;">✍️ ${task.signoffs.map(s => s.signedBy).join(', ')}</div>` : ''}
-                    </div>
-                `;
-            }
-        });
-
-        html += `</div>`;
-        html += `
-            <div class="task-category" style="background: #fffef7; border-radius: 28px; padding: 20px; border: 1px solid #f3e5bd; margin-top: 20px;">
-                <div class="category-title" style="font-size: 1.3rem; font-weight: 700; color: #b87c1a; margin-bottom: 16px; border-bottom: 2px solid #f0e0bc; padding-bottom: 8px;">🍽️ FOOD & BEVERAGE</div>
-        `;
-
-        FB_DAILY_TASKS.forEach(task => {
-            if (task.type === 'complete') {
-                const isCompleted = task.completedBy !== null;
-                html += `
-                    <div class="task-item" style="background: #fffcf5; border-radius: 20px; padding: 14px 16px; border: 1px solid #f0e2be; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
-                        <div class="task-text" style="font-size: 0.95rem; color: #5c4311; font-weight: 500; flex: 1;">${task.task}</div>
-                        <div class="task-actions">
-                            ${!isCompleted ? 
-                                `<button class="task-btn" onclick="window.completeTaskFB('${task.id}')" style="background: #f8e9cf; border: none; border-radius: 40px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; color: #b8860b; cursor: pointer;">✅ Mark Complete</button>` : 
-                                `<button class="task-btn completed" disabled style="background: #2c6e2c; color: white; cursor: not-allowed; opacity: 0.7; border: none; border-radius: 40px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600;">✅ Done by ${task.completedBy}</button>`}
-                        </div>
-                    </div>
-                `;
-            } else if (task.type === 'signoff') {
-                const hasSigned = task.signoffs.some(s => s.signedBy === currentLoggedInStaff.name);
-                html += `
-                    <div class="task-item" style="background: #fffcf5; border-radius: 20px; padding: 14px 16px; border: 1px solid #f0e2be; margin-bottom: 10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-                            <div class="task-text" style="font-size: 0.95rem; color: #5c4311; font-weight: 500;">${task.task}</div>
-                            ${!hasSigned ? 
-                                `<button class="signoff-btn" onclick="window.addSignoffFB('${task.id}')" style="background: #e4bc78; border: none; border-radius: 30px; padding: 8px 16px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #5c3e0e;">✍️ Signoff</button>` :
-                                `<button class="signoff-btn completed" disabled style="background: #2c6e2c; color: white; cursor: not-allowed; opacity: 0.7; border: none; border-radius: 30px; padding: 8px 16px; font-size: 0.85rem; font-weight: 600;">✅ Signed</button>`}
-                        </div>
-                        ${task.signoffs.length > 0 ? `<div style="margin-top:8px; font-size:0.75rem; color:#2c6e2c;">✍️ ${task.signoffs.map(s => s.signedBy).join(', ')}</div>` : ''}
-                    </div>
-                `;
-            }
-        });
-
-        html += `</div>`;
-        container.innerHTML = html;
-    }
-
-    // ========== DUTY CHANGE UI ==========
-    function populateDutyForm(staff) {
-        const rcInput = document.getElementById('dutyRcNo');
-        if (rcInput) rcInput.value = staff.rcno || '';
-        
-        const dateInput = document.getElementById('dutyDate');
-        if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
-        
-        const acceptSelect = document.getElementById('dutyAcceptStaff');
-        if (acceptSelect) {
-            const currentVal = acceptSelect.value;
-            acceptSelect.innerHTML = '<option value="">-- Select --</option>';
-            staffData.forEach(s => {
-                if (s.id !== staff.id) {
-                    const opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.textContent = `${s.name} (${s.rcno || ''})`;
-                    acceptSelect.appendChild(opt);
-                }
-            });
-            if (currentVal && acceptSelect.querySelector(`option[value="${currentVal}"]`)) {
-                acceptSelect.value = currentVal;
-            }
-        }
-        document.getElementById('submitDutyChangeBtn').disabled = false;
-    }
-
-    async function submitDutyChange() {
-        if (!currentLoggedInStaff) {
-            showTemporaryFeedback('⚠️ Please login first', true);
-            return;
-        }
-        
-        const date = document.getElementById('dutyDate').value;
-        const shift = document.getElementById('dutyShift').value;
-        const acceptId = document.getElementById('dutyAcceptStaff').value;
-        
-        if (!date) { showTemporaryFeedback('⚠️ Select duty date', true); return; }
-        if (!acceptId) { showTemporaryFeedback('⚠️ Select accepting staff', true); return; }
-        
-        const acceptStaff = getStaffById(acceptId);
-        if (!acceptStaff) { showTemporaryFeedback('⚠️ Invalid staff', true); return; }
-        if (acceptStaff.id === currentLoggedInStaff.id) { showTemporaryFeedback('⚠️ Cannot swap with yourself', true); return; }
-        
-        const existing = await loadDutyChangeRequests({ 
-            requesterId: currentLoggedInStaff.id,
-            dutyDate: date,
-            dutyShift: shift
-        });
-        const hasPending = existing.some(r => r.status === 'pending');
-        if (hasPending) {
-            showTemporaryFeedback('⚠️ You already have a pending request for this date/shift', true);
-            return;
-        }
-        
-        const request = {
-            requesterId: currentLoggedInStaff.id,
-            requesterName: currentLoggedInStaff.name,
-            requesterRcNo: currentLoggedInStaff.rcno || '',
-            dutyDate: date,
-            dutyShift: shift,
-            acceptStaffId: acceptStaff.id,
-            acceptStaffName: acceptStaff.name,
-            acceptStaffRcNo: acceptStaff.rcno || '',
-            status: 'pending'
-        };
-        
-        const ok = await saveDutyChangeRequest(request);
-        if (ok) {
-            showTemporaryFeedback('✅ Duty change request submitted!');
-            document.getElementById('dutyAcceptStaff').value = '';
-            await loadMyDutyRequests();
-            await loadAllDutyRequests();
-        } else {
-            showTemporaryFeedback('❌ Failed to submit request', true);
-        }
-    }
-
-    async function loadMyDutyRequests() {
-        const container = document.getElementById('myDutyRequestsList');
-        if (!currentLoggedInStaff) {
-            container.innerHTML = '<div class="empty-state">Login to see your requests</div>';
-            return;
-        }
-        
-        const requests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
-        if (requests.length === 0) {
-            container.innerHTML = '<div class="empty-state">No requests yet</div>';
-            return;
-        }
-        
-        container.innerHTML = requests.map(r => `
-            <div class="request-item">
-                <div class="request-info">
-                    <strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift} · 
-                    👤 ${r.acceptStaffName} (${r.acceptStaffRcNo || ''})
-                    <br><small>Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span></small>
-                </div>
-                ${r.status === 'pending' ? `
-                    <div class="request-actions">
-                        <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">❌ Cancel</button>
-                    </div>
-                ` : ''}
-            </div>
-        `).join('');
-    }
-
-    async function loadAllDutyRequests() {
-        const container = document.getElementById('allDutyRequestsList');
-        const section = document.getElementById('supervisorDutySection');
-        
-        if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
-            section.style.display = 'none';
-            return;
-        }
-        
-        section.style.display = 'block';
-        const requests = await loadDutyChangeRequests({});
-        
-        if (requests.length === 0) {
-            container.innerHTML = '<div class="empty-state">No requests</div>';
-            return;
-        }
-        
-        requests.sort((a, b) => {
-            if (a.status === 'pending' && b.status !== 'pending') return -1;
-            if (b.status === 'pending' && a.status !== 'pending') return 1;
-            return 0;
-        });
-        
-        container.innerHTML = requests.map(r => `
-            <div class="request-item">
-                <div class="request-info">
-                    <strong>${r.requesterName}</strong> (${r.requesterRcNo || ''}) → 
-                    <strong>${r.acceptStaffName}</strong> (${r.acceptStaffRcNo || ''})
-                    <br>📅 ${r.dutyDate} · ${r.dutyShift}
-                    <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
-                </div>
-                <div class="request-actions">
-                    ${r.status === 'pending' ? `
-                        <button class="btn-primary" style="padding:6px 16px;font-size:0.8rem;" onclick="window.approveDutyRequest('${r.id}')">✅ Approve</button>
-                        <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="window.rejectDutyRequest('${r.id}')">❌ Reject</button>
-                    ` : ''}
-                    <button class="btn-secondary" style="padding:4px 12px;font-size:0.7rem;background:#e5e7eb;" onclick="window.deleteDutyRequest('${r.id}')">🗑️</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    // ========== GLOBAL FUNCTIONS ==========
-    window.cancelDutyRequest = async function(id) {
-        if (!confirm('Cancel this request?')) return;
-        const ok = await deleteDutyChange(id);
-        if (ok) {
-            showTemporaryFeedback('Request cancelled');
-            await loadMyDutyRequests();
-            await loadAllDutyRequests();
-        }
-    };
-
-    window.approveDutyRequest = async function(id) {
-        const ok = await updateDutyChangeStatus(id, 'approved');
-        if (ok) {
-            showTemporaryFeedback('✅ Request approved');
-            await loadAllDutyRequests();
-            await loadMyDutyRequests();
-        }
-    };
-
-    window.rejectDutyRequest = async function(id) {
-        const ok = await updateDutyChangeStatus(id, 'rejected');
-        if (ok) {
-            showTemporaryFeedback('❌ Request rejected');
-            await loadAllDutyRequests();
-            await loadMyDutyRequests();
-        }
-    };
-
-    window.deleteDutyRequest = async function(id) {
-        if (!confirm('Delete this request?')) return;
-        const ok = await deleteDutyChange(id);
-        if (ok) {
-            showTemporaryFeedback('Request deleted');
-            await loadAllDutyRequests();
-            await loadMyDutyRequests();
-        }
-    };
-
-    window.completeTask = async function(taskId) {
-        if (!currentLoggedInStaff) return;
-        let task = MAIN_DAILY_TASKS.find(t => t.id === taskId) || FB_DAILY_TASKS.find(t => t.id === taskId);
-        if (task && task.type === 'complete') {
-            if (task.completedBy) return;
-            task.completedBy = currentLoggedInStaff.name;
-            task.completedAt = new Date().toLocaleString();
-            await saveAllTasksToFirebase();
-            renderTasks();
-            showTemporaryFeedback(`✅ Task completed by ${currentLoggedInStaff.name}`);
-        }
-    };
-
-    window.completeTaskFB = async function(taskId) {
-        if (!currentLoggedInStaff) return;
-        let task = FB_DAILY_TASKS.find(t => t.id === taskId);
-        if (task && task.type === 'complete') {
-            if (task.completedBy) return;
-            task.completedBy = currentLoggedInStaff.name;
-            task.completedAt = new Date().toLocaleString();
-            await saveAllTasksToFirebase();
-            renderTasks();
-        }
-    };
-
-    window.addSignoff = async function(taskId) {
-        if (!currentLoggedInStaff) return;
-        let task = MAIN_DAILY_TASKS.find(t => t.id === taskId) || FB_DAILY_TASKS.find(t => t.id === taskId);
-        if (task && task.type === 'signoff') {
-            if (!task.signoffs) task.signoffs = [];
-            if (task.signoffs.some(s => s.signedBy === currentLoggedInStaff.name)) {
-                showTemporaryFeedback('⚠️ You already signed off this task');
-                return;
-            }
-            task.signoffs.push({ name: currentLoggedInStaff.name, time: new Date().toLocaleString(), signedBy: currentLoggedInStaff.name });
-            await saveAllTasksToFirebase();
-            renderTasks();
-            showTemporaryFeedback(`✅ Signed off by ${currentLoggedInStaff.name}`);
-        }
-    };
-
-    window.addSignoffFB = async function(taskId) {
-        if (!currentLoggedInStaff) return;
-        let task = FB_DAILY_TASKS.find(t => t.id === taskId);
-        if (task && task.type === 'signoff') {
-            if (!task.signoffs) task.signoffs = [];
-            task.signoffs.push({ name: currentLoggedInStaff.name, time: new Date().toLocaleString(), signedBy: currentLoggedInStaff.name });
-            await saveAllTasksToFirebase();
-            renderTasks();
-        }
-    };
-
-    // ========== TOAST ==========
-    function showTemporaryFeedback(message, isError = false) {
-        const toast = document.getElementById('messageToast');
-        if (!toast) return;
-        toast.textContent = message;
-        toast.className = 'message-toast' + (isError ? ' error' : '');
-        toast.style.opacity = '1';
-        setTimeout(() => {
-            toast.style.opacity = '0';
-        }, 3000);
-    }
-
-    // ========== SUPERVISOR ==========
-    function renderSupervisorView(staff, dropdownEl = null) {
-        document.getElementById('supervisorDetailsArea').innerHTML = `
-            <div style="padding: 20px; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 10px;">🛡️</div>
-                <div style="font-weight: 700; color: #b87c1a;">${staff.name}</div>
-                <div style="color: #b28b44; font-size: 0.9rem;">Supervisor Dashboard</div>
-                <div style="margin-top: 15px; padding: 15px; background: #f8e9cf; border-radius: 16px;">
-                    <div style="font-weight: 600;">📅 Date: <span id="superDateDisplay"></span></div>
-                    <div style="font-weight: 600;">⏰ Shift: <span id="superShiftDisplay"></span></div>
-                </div>
-            </div>
-        `;
-        
-        if (dropdownEl && staff.id !== dropdownEl.value) dropdownEl.value = staff.id;
-        document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
-        document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
-        
-        // Load settings
-        loadSupervisorSettings().then(settings => {
-            if (settings) {
-                document.getElementById('superDateDisplay').textContent = settings.date;
-                document.getElementById('superShiftDisplay').textContent = settings.shift;
-            }
-        });
     }
 
     // ========== AUTH SYSTEM (from original) ==========
@@ -1989,34 +1140,19 @@
             closeAuthModal(true);
             resolve({ success: true, staff: staff });
             
-            if (pendingAuth.viewType === 'staff') {
-                currentLoggedInStaff = staff;
-                document.getElementById('currentUserDisplay').style.display = 'inline-block';
-                document.getElementById('currentUserName').innerHTML = staff.name;
-                document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
-                document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
-                await loadTasksFromFirebase();
-                renderTasks();
-                document.getElementById('syncStatusStaff').innerHTML = `✓ Logged in as ${staff.name}`;
-                document.getElementById('syncStatusStaff').className = 'sync-status connected';
-                // Also update duty panel
-                const dutyBadge = document.getElementById('dutyUserBadge');
-                if (dutyBadge) { dutyBadge.style.display = 'inline-block'; document.getElementById('dutyUserName').innerHTML = staff.name; }
-                populateDutyForm(staff);
-                await loadMyDutyRequests();
-                await loadAllDutyRequests();
-            } else if (pendingAuth.viewType === 'supervisor') {
-                renderSupervisorView(staff, pendingAuth.selectEl);
-            } else if (pendingAuth.viewType === 'duty') {
-                currentLoggedInStaff = staff;
-                const badge = document.getElementById('dutyUserBadge');
-                if (badge) { badge.style.display = 'inline-block'; document.getElementById('dutyUserName').innerHTML = staff.name; }
-                populateDutyForm(staff);
-                await loadMyDutyRequests();
-                await loadAllDutyRequests();
-                document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
-                document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
-            }
+            // Login success
+            currentLoggedInStaff = staff;
+            document.getElementById('currentUserDisplay').style.display = 'inline-block';
+            document.getElementById('currentUserName').innerHTML = staff.name;
+            document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
+            document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
+            
+            // Populate duty form
+            populateDutyForm(staff);
+            await loadMyDutyRequests();
+            await loadAllDutyRequests();
+            
+            showTemporaryFeedback(`✅ Welcome ${staff.name}!`);
         } else {
             if (source === 'pattern') { resetPattern(); } else { clearNumeric(); }
             const statusDiv = document.getElementById(source === 'pattern' ? 'patternStatus' : 'numericInput');
@@ -2045,9 +1181,9 @@
         updateNumericDisplay();
     }
     
-    function openPasswordModal(staff, viewType, selectEl, prevVal) {
+    function openPasswordModal(staff, selectEl, prevVal) {
         return new Promise((resolve) => {
-            pendingAuth = { staff, viewType, selectEl, prevDropdownValue: prevVal };
+            pendingAuth = { staff, viewType: 'login', selectEl, prevDropdownValue: prevVal };
             pendingAuthResolve = resolve;
             document.getElementById('modalStaffName').innerHTML = `🔐 ${staff.name}`;
             resetPattern();
@@ -2208,128 +1344,214 @@
         if (synced) {
             document.getElementById('changeFeedback').innerHTML = `<span style="color:#2c6e2c;">✅ Saved!</span>`;
             setTimeout(() => document.getElementById('changePasswordModal').classList.remove('active'), 1200);
+            showTemporaryFeedback('Login code updated successfully!');
         } else {
             document.getElementById('changeFeedback').innerHTML = '<span style="color:#e67e22;">⚠️ Save failed</span>';
         }
     }
 
-    // ========== CHECKLIST ==========
-    async function generateChecklist() {
-        const modal = document.getElementById('checklistModal');
-        const content = document.getElementById('checklistContent');
-        modal.classList.add('active');
-        content.innerHTML = '<div style="text-align:center; padding:20px;">Generating checklist...</div>';
+    // ========== DUTY CHANGE UI ==========
+    function populateDutyForm(staff) {
+        const rcInput = document.getElementById('dutyRcNo');
+        if (rcInput) rcInput.value = staff.rcno || '';
         
-        try {
-            const settings = await getCurrentActiveSettings();
-            let html = `
-                <div class="checklist-section">
-                    <h4>📅 Checklist Details</h4>
-                    <div class="checklist-item">Date: ${settings.date}</div>
-                    <div class="checklist-item">Shift: ${settings.shift}</div>
-                    <div class="checklist-item">Staff: ${currentLoggedInStaff?.name || 'Not logged in'}</div>
-                </div>
-                <div class="checklist-section">
-                    <h4>📋 Main Tasks</h4>
-                    ${MAIN_DAILY_TASKS.map(t => `
-                        <div class="checklist-item">
-                            ${t.type === 'complete' ? (t.completedBy ? '✅' : '⏳') : (t.signoffs.length > 0 ? '✍️' : '⏳')}
-                            ${t.task}
-                            ${t.type === 'complete' && t.completedBy ? `<small> - by ${t.completedBy}</small>` : ''}
-                            ${t.type === 'signoff' && t.signoffs.length > 0 ? `<small> - signed by ${t.signoffs.map(s => s.signedBy).join(', ')}</small>` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="checklist-section">
-                    <h4>🍽️ Food & Beverage</h4>
-                    ${FB_DAILY_TASKS.map(t => `
-                        <div class="checklist-item">
-                            ${t.type === 'complete' ? (t.completedBy ? '✅' : '⏳') : (t.signoffs.length > 0 ? '✍️' : '⏳')}
-                            ${t.task}
-                            ${t.type === 'complete' && t.completedBy ? `<small> - by ${t.completedBy}</small>` : ''}
-                            ${t.type === 'signoff' && t.signoffs.length > 0 ? `<small> - signed by ${t.signoffs.map(s => s.signedBy).join(', ')}</small>` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            content.innerHTML = html;
-        } catch(e) {
-            content.innerHTML = '<p style="color:#c25d2e;">Error generating checklist</p>';
+        const dateInput = document.getElementById('dutyDate');
+        if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+        
+        const acceptSelect = document.getElementById('dutyAcceptStaff');
+        if (acceptSelect) {
+            const currentVal = acceptSelect.value;
+            acceptSelect.innerHTML = '<option value="">-- Select --</option>';
+            staffData.forEach(s => {
+                if (s.id !== staff.id) {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = `${s.name} (${s.rcno || ''})`;
+                    acceptSelect.appendChild(opt);
+                }
+            });
+            if (currentVal && acceptSelect.querySelector(`option[value="${currentVal}"]`)) {
+                acceptSelect.value = currentVal;
+            }
+        }
+        document.getElementById('submitDutyChangeBtn').disabled = false;
+    }
+
+    async function submitDutyChange() {
+        if (!currentLoggedInStaff) {
+            showTemporaryFeedback('⚠️ Please login first', true);
+            return;
+        }
+        
+        const date = document.getElementById('dutyDate').value;
+        const shift = document.getElementById('dutyShift').value;
+        const acceptId = document.getElementById('dutyAcceptStaff').value;
+        
+        if (!date) { showTemporaryFeedback('⚠️ Select duty date', true); return; }
+        if (!acceptId) { showTemporaryFeedback('⚠️ Select accepting staff', true); return; }
+        
+        const acceptStaff = getStaffById(acceptId);
+        if (!acceptStaff) { showTemporaryFeedback('⚠️ Invalid staff', true); return; }
+        if (acceptStaff.id === currentLoggedInStaff.id) { showTemporaryFeedback('⚠️ Cannot swap with yourself', true); return; }
+        
+        const existing = await loadDutyChangeRequests({ 
+            requesterId: currentLoggedInStaff.id,
+            dutyDate: date,
+            dutyShift: shift
+        });
+        const hasPending = existing.some(r => r.status === 'pending');
+        if (hasPending) {
+            showTemporaryFeedback('⚠️ You already have a pending request for this date/shift', true);
+            return;
+        }
+        
+        const request = {
+            requesterId: currentLoggedInStaff.id,
+            requesterName: currentLoggedInStaff.name,
+            requesterRcNo: currentLoggedInStaff.rcno || '',
+            dutyDate: date,
+            dutyShift: shift,
+            acceptStaffId: acceptStaff.id,
+            acceptStaffName: acceptStaff.name,
+            acceptStaffRcNo: acceptStaff.rcno || '',
+            status: 'pending'
+        };
+        
+        const ok = await saveDutyChangeRequest(request);
+        if (ok) {
+            showTemporaryFeedback('✅ Duty change request submitted!');
+            document.getElementById('dutyAcceptStaff').value = '';
+            await loadMyDutyRequests();
+            await loadAllDutyRequests();
+        } else {
+            showTemporaryFeedback('❌ Failed to submit request', true);
         }
     }
 
-    function printChecklist() {
-        const content = document.getElementById('checklistContent').innerHTML;
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html><head><title>Checklist</title>
-            <style>body{font-family:system-ui;padding:40px;}.checklist-section{margin-bottom:20px;}.checklist-item{padding:6px 0;border-bottom:1px solid #eee;}</style>
-            </head><body><h1>📋 Daily Checklist</h1>${content}</body></html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
+    async function loadMyDutyRequests() {
+        const container = document.getElementById('myDutyRequestsList');
+        if (!currentLoggedInStaff) {
+            container.innerHTML = '<div class="empty-state">Login to see your requests</div>';
+            return;
+        }
+        
+        const requests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
+        if (requests.length === 0) {
+            container.innerHTML = '<div class="empty-state">No requests yet</div>';
+            return;
+        }
+        
+        container.innerHTML = requests.map(r => `
+            <div class="request-item">
+                <div class="request-info">
+                    <strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift} · 
+                    👤 ${r.acceptStaffName} (${r.acceptStaffRcNo || ''})
+                    <br><small>Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span></small>
+                </div>
+                ${r.status === 'pending' ? `
+                    <div class="request-actions">
+                        <button class="btn-danger" onclick="window.cancelDutyRequest('${r.id}')">❌ Cancel</button>
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
     }
 
-    function exportToPDF() {
-        const element = document.getElementById('checklistContent');
-        const opt = {
-            margin: [0.5, 0.5, 0.5, 0.5],
-            filename: `Checklist_${new Date().toISOString().split('T')[0]}.pdf`,
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
+    async function loadAllDutyRequests() {
+        const container = document.getElementById('allDutyRequestsList');
+        const section = document.getElementById('supervisorSection');
+        
+        if (!currentLoggedInStaff || currentLoggedInStaff.role !== 'Supervisor') {
+            section.style.display = 'none';
+            return;
+        }
+        
+        section.style.display = 'block';
+        const requests = await loadDutyChangeRequests({});
+        
+        if (requests.length === 0) {
+            container.innerHTML = '<div class="empty-state">No requests</div>';
+            return;
+        }
+        
+        requests.sort((a, b) => {
+            if (a.status === 'pending' && b.status !== 'pending') return -1;
+            if (b.status === 'pending' && a.status !== 'pending') return 1;
+            return 0;
+        });
+        
+        container.innerHTML = requests.map(r => `
+            <div class="request-item">
+                <div class="request-info">
+                    <strong>${r.requesterName}</strong> (${r.requesterRcNo || ''}) → 
+                    <strong>${r.acceptStaffName}</strong> (${r.acceptStaffRcNo || ''})
+                    <br>📅 ${r.dutyDate} · ${r.dutyShift}
+                    <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
+                </div>
+                <div class="request-actions">
+                    ${r.status === 'pending' ? `
+                        <button class="btn-primary" style="padding:6px 16px;font-size:0.8rem;" onclick="window.approveDutyRequest('${r.id}')">✅ Approve</button>
+                        <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="window.rejectDutyRequest('${r.id}')">❌ Reject</button>
+                    ` : ''}
+                    <button class="btn-secondary" style="padding:4px 12px;font-size:0.7rem;background:#e5e7eb;" onclick="window.deleteDutyRequest('${r.id}')">🗑️</button>
+                </div>
+            </div>
+        `).join('');
     }
 
-    // ========== LOADING ==========
-    let loadingInterval;
-    let loadingProgress = 0;
-    
-    function showLoading() {
-        const overlay = document.getElementById('loadingPopup');
-        if (!overlay) return;
-        
-        loadingProgress = 0;
-        const progressFill = document.getElementById('loadingProgressFill');
-        const percentageEl = document.getElementById('loadingPercentage');
-        const subtitleEl = document.getElementById('loadingSubtitle');
-        
-        const messages = ["Connecting to Firebase...", "Loading staff data...", "Syncing tasks...", "Almost ready...", "Welcome!"];
-        let msgIndex = 0;
-        
-        if (loadingInterval) clearInterval(loadingInterval);
-        
-        loadingInterval = setInterval(() => {
-            loadingProgress += Math.random() * 15 + 5;
-            if (loadingProgress > 100) loadingProgress = 100;
-            
-            if (progressFill) progressFill.style.width = loadingProgress + '%';
-            if (percentageEl) percentageEl.textContent = Math.floor(loadingProgress) + '%';
-            
-            if (msgIndex < messages.length && loadingProgress > (msgIndex + 1) * 18) {
-                if (subtitleEl) subtitleEl.textContent = messages[msgIndex];
-                msgIndex++;
-            }
-            
-            if (loadingProgress >= 100) {
-                clearInterval(loadingInterval);
-            }
-        }, 200);
-        
-        overlay.classList.add('active');
-    }
-    
-    function hideLoading() {
-        const overlay = document.getElementById('loadingPopup');
-        if (!overlay) return;
-        if (loadingInterval) clearInterval(loadingInterval);
-        setTimeout(() => { overlay.classList.remove('active'); }, 500);
+    // ========== GLOBAL FUNCTIONS ==========
+    window.cancelDutyRequest = async function(id) {
+        if (!confirm('Cancel this request?')) return;
+        const ok = await deleteDutyChange(id);
+        if (ok) {
+            showTemporaryFeedback('Request cancelled');
+            await loadMyDutyRequests();
+            await loadAllDutyRequests();
+        }
+    };
+
+    window.approveDutyRequest = async function(id) {
+        const ok = await updateDutyChangeStatus(id, 'approved');
+        if (ok) {
+            showTemporaryFeedback('✅ Request approved');
+            await loadAllDutyRequests();
+            await loadMyDutyRequests();
+        }
+    };
+
+    window.rejectDutyRequest = async function(id) {
+        const ok = await updateDutyChangeStatus(id, 'rejected');
+        if (ok) {
+            showTemporaryFeedback('❌ Request rejected');
+            await loadAllDutyRequests();
+            await loadMyDutyRequests();
+        }
+    };
+
+    window.deleteDutyRequest = async function(id) {
+        if (!confirm('Delete this request?')) return;
+        const ok = await deleteDutyChange(id);
+        if (ok) {
+            showTemporaryFeedback('Request deleted');
+            await loadAllDutyRequests();
+            await loadMyDutyRequests();
+        }
+    };
+
+    // ========== TOAST ==========
+    function showTemporaryFeedback(message, isError = false) {
+        const toast = document.getElementById('messageToast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.className = 'message-toast' + (isError ? ' error' : '');
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 3000);
     }
 
     // ========== INIT ==========
     async function initApp() {
-        showLoading();
-        
         // Init Firebase
         initFirebase();
         
@@ -2341,90 +1563,42 @@
             await loadCredentialsFromFirebase();
         }
         
-        // Update banner
-        await updateGlobalBanner();
-        
         // Setup pattern lock
         initPatternLock();
         buildKeypad();
         initChangePatternGrid();
         buildChangePinKeypad();
         
-        // Populate dropdowns
-        const staffDropdown = document.getElementById('staffSelect');
-        const supDropdown = document.getElementById('supervisorSelect');
-        const dutyDropdown = document.getElementById('dutyStaffSelect');
-        
-        staffDropdown.innerHTML = '<option value="">-- Select Staff Member --</option>';
-        supDropdown.innerHTML = '<option value="">-- Select Staff Member --</option>';
-        dutyDropdown.innerHTML = '<option value="">-- Select Staff --</option>';
-        
+        // Populate login dropdown
+        const loginSelect = document.getElementById('loginStaffSelect');
+        loginSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
         staffData.forEach(s => {
-            staffDropdown.appendChild(new Option(s.name, s.id));
-            supDropdown.appendChild(new Option(s.name, s.id));
-            dutyDropdown.appendChild(new Option(s.name, s.id));
+            loginSelect.appendChild(new Option(`${s.name} (${s.rcno || ''})`, s.id));
         });
         
-        // Staff dropdown login
-        staffDropdown.addEventListener('change', async (e) => {
+        // Login dropdown handler
+        loginSelect.addEventListener('change', async (e) => {
             const selectedValue = e.target.value;
             if (!selectedValue) {
                 if (currentLoggedInStaff) {
                     currentLoggedInStaff = null;
                     document.getElementById('currentUserDisplay').style.display = 'none';
-                    document.getElementById('syncStatusStaff').innerHTML = '📋 Please select a staff member';
-                    document.getElementById('syncStatusStaff').className = 'sync-status disconnected';
-                    renderTasks();
+                    document.getElementById('profileShortName').innerHTML = 'Login';
+                    document.getElementById('profileAvatar').innerHTML = '👤';
+                    loadMyDutyRequests();
+                    loadAllDutyRequests();
                 }
                 return;
             }
             const s = getStaffById(selectedValue);
             if (s) {
-                const result = await openPasswordModal(s, 'staff', staffDropdown, staffDropdown.value);
+                const result = await openPasswordModal(s, loginSelect, loginSelect.value);
                 if (result?.success) {
-                    currentLoggedInStaff = s;
-                    document.getElementById('currentUserDisplay').style.display = 'inline-block';
-                    document.getElementById('currentUserName').innerHTML = s.name;
-                    document.getElementById('profileShortName').innerHTML = s.name.split(' ')[0];
-                    document.getElementById('profileAvatar').innerHTML = s.name.charAt(0).toUpperCase();
-                    await loadTasksFromFirebase();
-                    renderTasks();
-                    document.getElementById('syncStatusStaff').innerHTML = `✓ Logged in as ${s.name}`;
-                    document.getElementById('syncStatusStaff').className = 'sync-status connected';
+                    // Already handled in attemptAutoVerify
                 } else {
-                    if (currentLoggedInStaff) staffDropdown.value = currentLoggedInStaff.id;
-                    else staffDropdown.value = '';
+                    if (currentLoggedInStaff) loginSelect.value = currentLoggedInStaff.id;
+                    else loginSelect.value = '';
                 }
-            }
-        });
-        
-        // Duty dropdown login
-        dutyDropdown.addEventListener('change', async (e) => {
-            const s = getStaffById(e.target.value);
-            if (s) {
-                const result = await openPasswordModal(s, 'duty', dutyDropdown, dutyDropdown.value);
-                if (result?.success) {
-                    currentLoggedInStaff = s;
-                    const badge = document.getElementById('dutyUserBadge');
-                    if (badge) { badge.style.display = 'inline-block'; document.getElementById('dutyUserName').innerHTML = s.name; }
-                    populateDutyForm(s);
-                    await loadMyDutyRequests();
-                    await loadAllDutyRequests();
-                    document.getElementById('profileShortName').innerHTML = s.name.split(' ')[0];
-                    document.getElementById('profileAvatar').innerHTML = s.name.charAt(0).toUpperCase();
-                } else {
-                    if (currentLoggedInStaff) dutyDropdown.value = currentLoggedInStaff.id;
-                    else dutyDropdown.value = '';
-                }
-            }
-        });
-        
-        // Supervisor dropdown login
-        supDropdown.addEventListener('change', async (e) => {
-            const s = getStaffById(e.target.value);
-            if (s) {
-                const result = await openPasswordModal(s, 'supervisor', supDropdown, supDropdown.value);
-                if (result?.success) renderSupervisorView(s, supDropdown);
             }
         });
         
@@ -2434,15 +1608,6 @@
         // Set default date
         const dateInput = document.getElementById('dutyDate');
         if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-        
-        // Checklist
-        document.getElementById('generateChecklistBtn').onclick = () => {
-            if (!currentLoggedInStaff) { alert('Please login first'); return; }
-            generateChecklist();
-        };
-        document.getElementById('closeChecklistBtn').onclick = () => document.getElementById('checklistModal').classList.remove('active');
-        document.getElementById('printChecklistBtn').onclick = printChecklist;
-        document.getElementById('pdfChecklistBtn').onclick = exportToPDF;
         
         // Modal events
         document.querySelectorAll('.modal-tab-btn').forEach(btn => btn.addEventListener('click', () => {
@@ -2476,7 +1641,7 @@
         document.getElementById('cancelChangeBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
         document.getElementById('closeChangeModalBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
         
-        // Profile
+        // Profile menu
         const profileBtn = document.getElementById('profileButton'), profileMenu = document.getElementById('profileMenu');
         profileBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -2485,62 +1650,35 @@
         document.addEventListener('click', () => profileMenu.classList.remove('show'));
         
         document.getElementById('profileViewAction').onclick = () => {
-            if (currentLoggedInStaff) alert(`👤 ${currentLoggedInStaff.name}\nRole: ${currentLoggedInStaff.role}\nRC No: ${currentLoggedInStaff.rcno || 'N/A'}\nContact: ${currentLoggedInStaff.contact || 'N/A'}`);
-            else alert('Please login first');
+            if (currentLoggedInStaff) {
+                alert(`👤 ${currentLoggedInStaff.name}\nRole: ${currentLoggedInStaff.role}\nRC No: ${currentLoggedInStaff.rcno || 'N/A'}\nContact: ${currentLoggedInStaff.contact || 'N/A'}`);
+            } else {
+                showTemporaryFeedback('Please login first', true);
+            }
             profileMenu.classList.remove('show');
         };
         
         document.getElementById('profileChangePass').onclick = () => {
-            const s = currentLoggedInStaff;
-            if (s) {
-                activeStaffForChange = s;
+            if (currentLoggedInStaff) {
+                activeStaffForChange = currentLoggedInStaff;
                 changePatternSeq = [];
                 changePinValue = '';
                 resetChangePattern();
                 document.getElementById('changePinDisplay').innerHTML = '●●●●●●';
                 document.getElementById('changeFeedback').innerHTML = '';
                 document.getElementById('changePasswordModal').classList.add('active');
-            } else alert('Please login first');
+            } else {
+                showTemporaryFeedback('Please login first', true);
+            }
             profileMenu.classList.remove('show');
         };
-        
-        document.getElementById('profileSwitchRole').onclick = () => {
-            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
-            if (activeTab === 'staff') document.querySelector('.tab-btn[data-tab="supervisor"]')?.click();
-            else document.querySelector('.tab-btn[data-tab="staff"]')?.click();
-            profileMenu.classList.remove('show');
-        };
-        
-        // Tab switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const which = btn.dataset.tab;
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active-panel'));
-                if (which === 'staff') {
-                    document.getElementById('staffViewPanel').classList.add('active-panel');
-                    renderTasks();
-                } else if (which === 'duty') {
-                    document.getElementById('dutyViewPanel').classList.add('active-panel');
-                    if (currentLoggedInStaff) {
-                        populateDutyForm(currentLoggedInStaff);
-                        await loadMyDutyRequests();
-                        await loadAllDutyRequests();
-                    }
-                } else if (which === 'supervisor') {
-                    document.getElementById('supervisorViewPanel').classList.add('active-panel');
-                }
-            });
-        });
         
         // Initial render
-        renderTasks();
         loadMyDutyRequests();
         loadAllDutyRequests();
         
-        hideLoading();
-        console.log('✅ App initialized');
+        console.log('✅ Duty Change App initialized');
+        console.log(`📊 ${staffData.length} staff members loaded`);
     }
 
     // Start app
