@@ -169,12 +169,10 @@ async function deleteDutyChange(requestId) {
 function getRequestLimitInfo(staffId, allRequests) {
     const staffRequests = allRequests.filter(r => r.requesterId === staffId);
     
-    // Count only duty changes (exclude Off Duty swaps)
     const dutyChangeRequests = staffRequests.filter(r => 
         !isOffDuty(r.requesterDuty) && !isOffDuty(r.acceptStaffDuty)
     );
     
-    // Count by month half
     let firstHalfUsed = 0;
     let secondHalfUsed = 0;
     let pendingCount = 0;
@@ -370,7 +368,6 @@ async function attemptAutoVerify(source) {
         closeAuthModal(true);
         resolve({ success: true, staff: staff });
         
-        // Login success
         currentLoggedInStaff = staff;
         document.getElementById('currentUserDisplay').style.display = 'inline-block';
         document.getElementById('currentUserName').innerHTML = `${staff.name} (RC: ${staff.rcno})`;
@@ -680,13 +677,10 @@ function updateRequestSummary() {
 async function loadAllData() {
     if (!currentLoggedInStaff) return;
     
-    // Load all requests
     allRequestsCache = await loadDutyChangeRequests({});
     
-    // Update limit display
     updateRequestLimitDisplay();
     
-    // Load all lists
     await loadMyDutyRequests();
     await loadReceivedRequests();
     await loadAllDutyRequests();
@@ -706,7 +700,6 @@ function updateRequestLimitDisplay() {
     document.getElementById('pendingCount').textContent = info.pendingCount;
     document.getElementById('approvedCount').textContent = info.approvedCount;
     
-    // Check if can request for current date
     const swapDate = document.getElementById('swapDate').value;
     if (swapDate) {
         const half = getMonthHalf(swapDate);
@@ -749,10 +742,8 @@ async function submitDutyChange() {
         return; 
     }
     
-    // Check if Off Duty swap - these don't count towards limit
     const isOffDutySwap = isOffDuty(requestDuty) || isOffDuty(acceptDuty);
     
-    // Check request limit (only for duty changes, not Off Duty)
     if (!isOffDutySwap) {
         const info = getRequestLimitInfo(currentLoggedInStaff.id, allRequestsCache);
         const half = getMonthHalf(swapDate);
@@ -762,7 +753,6 @@ async function submitDutyChange() {
         }
     }
     
-    // Check if request already exists for this date
     const existing = await loadDutyChangeRequests({ 
         requesterId: currentLoggedInStaff.id,
         swapDate: swapDate
@@ -849,6 +839,7 @@ async function loadMyDutyRequests() {
     `).join('');
 }
 
+// FIXED: loadReceivedRequests function
 async function loadReceivedRequests() {
     const container = document.getElementById('receivedRequestsList');
     if (!currentLoggedInStaff) {
@@ -856,13 +847,16 @@ async function loadReceivedRequests() {
         return;
     }
     
+    // Get all requests where this staff is the accept staff and status is pending_accept
     const requests = await loadDutyChangeRequests({ 
         acceptStaffId: currentLoggedInStaff.id,
         status: 'pending_accept'
     });
     
+    console.log('📩 Received requests for', currentLoggedInStaff.name, ':', requests.length);
+    
     if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No pending requests received</div>';
+        container.innerHTML = '<div class="empty-state">No pending requests received from other staff</div>';
         return;
     }
     
