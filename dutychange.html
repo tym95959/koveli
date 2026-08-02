@@ -13,7 +13,7 @@
     <script type="importmap">
         {
             "imports": {
-                "script/staff.js": "script/staff.js"
+                "script/staff.js": ".script/staff.js"
             }
         }
     </script>
@@ -163,18 +163,18 @@
         </div>
     </div>
 
-    <!-- Admin Section - Only visible to Supervisors -->
-<div class="duty-card" id="adminSection" style="display: none;">
-    <h3>🛡️ Admin - All Duty Change Requests</h3>
-    <div id="adminRequestsList">
-        <div class="empty-state">No requests found</div>
+    <!-- Admin Section - Only visible to Admins -->
+    <div class="duty-card" id="adminSection" style="display: none;">
+        <h3>🛡️ Admin - All Duty Change Requests</h3>
+        <div id="adminRequestsList">
+            <div class="empty-state">No requests found</div>
+        </div>
+        <div style="margin-top: 10px;">
+            <button class="btn-danger" style="width: 100%; padding: 12px; font-size: 1rem;" onclick="window.deleteAllDutyChanges()">
+                🗑️ Delete All Requests
+            </button>
+        </div>
     </div>
-    <div style="margin-top: 10px;">
-        <button class="btn-danger" style="width: 100%; padding: 12px; font-size: 1rem;" onclick="window.deleteAllDutyChanges()">
-            🗑️ Delete All Requests
-        </button>
-    </div>
-</div>
 
     <div class="footer-note">🔄 Duty swap requests require acceptance by the receiving staff</div>
 </div>
@@ -250,6 +250,16 @@
 
 <!-- Toast Message -->
 <div id="messageToast" class="message-toast"></div>
+
+<!-- Loading Popup -->
+<div id="loadingPopup" class="loading-popup">
+    <div class="loading-content">
+        <div id="loadingSpinner" class="spinner"></div>
+        <div id="loadingIcon" style="display: none;"></div>
+        <div class="loading-title" id="loadingTitle">Processing...</div>
+        <div class="loading-subtitle" id="loadingSubtitle">Please wait</div>
+    </div>
+</div>
 
 <script type="module" src="script/dutychange.js"></script>
 </body>
