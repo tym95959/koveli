@@ -113,6 +113,7 @@ async function saveDutyChangeRequest(request) {
             status: 'pending_accept',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        console.log('✅ Request saved:', request);
         return true;
     } catch(e) {
         console.error('Save error:', e);
@@ -131,7 +132,11 @@ async function loadDutyChangeRequests(filters = {}) {
         
         const snap = await q.orderBy('createdAt', 'desc').get();
         const results = [];
-        snap.forEach(doc => results.push({ id: doc.id, ...doc.data() }));
+        snap.forEach(doc => {
+            const data = doc.data();
+            console.log('📄 Loaded request:', data.requesterName, '->', data.acceptStaffName, 'Status:', data.status);
+            results.push({ id: doc.id, ...data });
+        });
         return results;
     } catch(e) {
         console.warn('Load error:', e);
@@ -147,6 +152,7 @@ async function updateDutyChangeStatus(requestId, status) {
             reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
             reviewedBy: currentLoggedInStaff?.name || 'System'
         });
+        console.log('✅ Status updated to:', status);
         return true;
     } catch(e) {
         console.error('Update error:', e);
@@ -678,6 +684,7 @@ async function loadAllData() {
     if (!currentLoggedInStaff) return;
     
     allRequestsCache = await loadDutyChangeRequests({});
+    console.log('📊 Total requests loaded:', allRequestsCache.length);
     
     updateRequestLimitDisplay();
     
@@ -839,7 +846,7 @@ async function loadMyDutyRequests() {
     `).join('');
 }
 
-// FIXED: loadReceivedRequests function
+// ========== RECEIVED REQUESTS - FIXED ==========
 async function loadReceivedRequests() {
     const container = document.getElementById('receivedRequestsList');
     if (!currentLoggedInStaff) {
@@ -847,11 +854,23 @@ async function loadReceivedRequests() {
         return;
     }
     
-    // Get all requests where this staff is the accept staff and status is pending_accept
-    const requests = await loadDutyChangeRequests({ 
-        acceptStaffId: currentLoggedInStaff.id,
-        status: 'pending_accept'
-    });
+    // Get ALL requests first, then filter manually for debugging
+    const allRequests = await loadDutyChangeRequests({});
+    console.log('📩 All requests for debugging:', allRequests.map(r => ({
+        id: r.id,
+        requester: r.requesterName,
+        acceptStaff: r.acceptStaffName,
+        acceptStaffId: r.acceptStaffId,
+        currentStaffId: currentLoggedInStaff.id,
+        status: r.status,
+        match: r.acceptStaffId === currentLoggedInStaff.id
+    })));
+    
+    // Filter: where acceptStaffId matches current user and status is pending_accept
+    const requests = allRequests.filter(r => 
+        r.acceptStaffId === currentLoggedInStaff.id && 
+        r.status === 'pending_accept'
+    );
     
     console.log('📩 Received requests for', currentLoggedInStaff.name, ':', requests.length);
     
@@ -861,7 +880,7 @@ async function loadReceivedRequests() {
     }
     
     container.innerHTML = requests.map(r => `
-        <div class="request-item" style="border-left: 4px solid #e4bc78;">
+        <div class="request-item" style="border-left: 4px solid #e4bc78; background: #f0f8f0;">
             <div class="request-info">
                 <div><strong>📅 ${r.swapDate}</strong></div>
                 <div style="font-size: 0.85rem; margin-top: 4px;">
@@ -877,8 +896,8 @@ async function loadReceivedRequests() {
                 </div>
             </div>
             <div class="request-actions">
-                <button class="btn-primary" style="padding:6px 16px;font-size:0.8rem;" onclick="window.acceptSwapRequest('${r.id}')">✅ Accept</button>
-                <button class="btn-danger" style="padding:6px 16px;font-size:0.8rem;" onclick="window.rejectSwapRequest('${r.id}')">❌ Reject</button>
+                <button class="btn-primary" style="padding:8px 20px;font-size:0.85rem;" onclick="window.acceptSwapRequest('${r.id}')">✅ Accept</button>
+                <button class="btn-danger" style="padding:8px 20px;font-size:0.85rem;" onclick="window.rejectSwapRequest('${r.id}')">❌ Reject</button>
             </div>
         </div>
     `).join('');
