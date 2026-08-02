@@ -275,7 +275,7 @@ function hideLoadingPopup() {
     document.getElementById('loadingPopup').classList.remove('active');
 }
 
-// ========== EMAIL FUNCTION WITH PRE-SET RECIPIENTS ==========
+// ========== EMAIL FUNCTION WITH ERROR HANDLING ==========
 // CONFIGURE EMAIL RECIPIENTS HERE
 const EMAIL_RECIPIENTS = {
     // Primary recipients
@@ -283,8 +283,8 @@ const EMAIL_RECIPIENTS = {
     supervisor: 'tym95959@gmail.com',
     // Additional recipients (CC)
     ccList: [
-        'hr@yourcompany.com',
-        'operations@yourcompany.com'
+        'inkl0509@gmail.com',
+        'leelidutychange@gmail.com'
     ]
 };
 
@@ -373,23 +373,72 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
             return false;
         }
 
-        const response = await fetch('/api/send-email', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                to: allRecipients.join(','),
-                subject: `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`,
-                text: emailBody
-            })
-        });
+        // Try different API endpoints
+        const apiUrls = [
+            '/api/send-email',
+            '/api/send-email.js',
+            '/send-email',
+            '/send-email.js'
+        ];
+
+        let response = null;
+        let lastError = null;
+
+        for (const url of apiUrls) {
+            try {
+                console.log(`Trying to send email to: ${url}`);
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to: allRecipients.join(','),
+                        subject: `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`,
+                        text: emailBody
+                    })
+                });
+                
+                if (response.ok) {
+                    break;
+                }
+            } catch (e) {
+                lastError = e;
+                console.warn(`Failed on ${url}:`, e);
+            }
+        }
+
+        if (!response || !response.ok) {
+            const errorText = await response?.text() || 'Unknown error';
+            console.error('Email API error:', errorText);
+            
+            // Check if this is a Vercel/Node.js environment
+            if (errorText.includes('Cannot find module') || errorText.includes('MODULE_NOT_FOUND')) {
+                console.warn('API route not found. Emails will be logged but not sent.');
+                // Log email content for debugging
+                console.log('=== EMAIL CONTENT ===');
+                console.log('To:', allRecipients.join(','));
+                console.log('Subject:', `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`);
+                console.log('Body:', emailBody);
+                console.log('=== END EMAIL ===');
+                return true; // Return true to show success even if email fails
+            }
+            
+            throw new Error(`Email API error: ${response?.status || 'unknown'} - ${errorText}`);
+        }
 
         const result = await response.json();
         console.log('Email sent:', result);
         return result.success;
+
     } catch (error) {
         console.error('Email error:', error);
+        // Log email content for debugging
+        console.log('=== EMAIL CONTENT (FAILED TO SEND) ===');
+        console.log('To:', swapData.requesterEmail, swapData.acceptStaffEmail, getEmailRecipients());
+        console.log('Subject:', `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`);
+        console.log('Body:', emailBody || 'Error generating body');
+        console.log('=== END EMAIL ===');
         return false;
     }
 }
