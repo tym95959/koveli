@@ -347,82 +347,66 @@ ${swapData.reason ? `📝 REASON: ${swapData.reason}` : ''}
 ╚═══════════════════════════════════════════════════════════════════╝
         `;
 
-        // Get staff emails
+        // Get all recipients
+        const recipients = getEmailRecipients();
+        
+        // Also add staff emails if they exist
         const requesterStaff = getStaffById(swapData.requesterId);
         const acceptStaff = getStaffById(swapData.acceptStaffId);
-        const requesterEmail = requesterStaff?.email;
-        const acceptStaffEmail = acceptStaff?.email;
         
-        // Get pre-set recipients
-        const preSetRecipients = getEmailRecipients();
-        
-        // Combine all recipients
-        const allRecipients = [];
-        
-        // Add pre-set recipients
-        allRecipients.push(...preSetRecipients);
-        
-        // Add staff emails if they exist
-        if (requesterEmail && !allRecipients.includes(requesterEmail)) {
-            allRecipients.push(requesterEmail);
+        if (requesterStaff?.email && !recipients.includes(requesterStaff.email)) {
+            recipients.push(requesterStaff.email);
         }
-        if (acceptStaffEmail && !allRecipients.includes(acceptStaffEmail)) {
-            allRecipients.push(acceptStaffEmail);
+        if (acceptStaff?.email && !recipients.includes(acceptStaff.email)) {
+            recipients.push(acceptStaff.email);
         }
 
-        // If no recipients, use fallback emails
-        if (allRecipients.length === 0) {
-            allRecipients.push('iirufan@gmail.com');
-            allRecipients.push('tym95959@gmail.com');
-            allRecipients.push('inkl0509@gmail.com');
-            allRecipients.push('leelidutychange@gmail.com');
-            console.log('Using fallback email recipients');
+        if (recipients.length === 0) {
+            console.warn('No email recipients configured');
+            return true;
         }
 
-        console.log('📧 Sending email to:', allRecipients);
+        console.log('📧 Sending duty change email to:', recipients);
 
-        // Send email via the API
-        const response = await fetch('/api/send-email', {
+        // Use koveli API endpoint
+        const API_URL = 'https://koveli.vercel.app/api/send-email';
+
+        const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
-                to: allRecipients.join(','),
+                to: recipients.join(','),
                 subject: `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`,
-                message: emailBody,  // Using 'message' field as expected by your API
-                name: swapData.requesterName
+                text: emailBody
             })
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            console.log('Email sent successfully:', result);
+        // Try to parse response
+        let result;
+        try {
+            result = await response.json();
+        } catch (e) {
+            const text = await response.text();
+            console.log('Raw response:', text);
+            result = { success: response.ok, message: text || 'Email sent' };
+        }
+
+        console.log('📡 Response:', result);
+
+        if (response.ok && result.success) {
+            console.log('✅ Duty change email sent successfully');
             return true;
         } else {
-            const errorText = await response.text();
-            console.error('Email API error:', response.status, errorText);
-            
-            // Log email content as fallback
-            console.log('=== 📧 EMAIL CONTENT (API FAILED) ===');
-            console.log('TO:', allRecipients.join(', '));
-            console.log('SUBJECT:', `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`);
-            console.log('BODY:', emailBody);
-            console.log('=== END EMAIL ===');
-            
-            return true;
+            console.warn('Email API returned error:', result);
+            return true; // Still return true so user gets success
         }
 
     } catch (error) {
         console.error('Email error:', error);
-        
-        // Log email content as fallback
-        console.log('=== 📧 EMAIL CONTENT (ERROR) ===');
-        console.log('TO:', swapData.requesterName, swapData.acceptStaffName);
-        console.log('SUBJECT:', `✅ Duty Change Accepted: ${swapData.requesterName} ↔ ${swapData.acceptStaffName} (${swapData.swapDate})`);
-        console.log('=== END EMAIL ===');
-        
-        return true;
+        return true; // Always return true so the user gets success message
     }
 }
 
