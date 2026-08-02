@@ -81,6 +81,28 @@ async function syncStaffToFirebase(staff) {
     }
 }
 
+// ========== HELPER FUNCTIONS ==========
+function isOffDuty(duty) {
+    return duty && duty.includes('Off Duty');
+}
+
+function getMonthHalf(dateStr) {
+    if (!dateStr) return 'first';
+    const day = parseInt(dateStr.split('-')[2]);
+    return day <= 15 ? 'first' : 'second';
+}
+
+function getDutyBadgeClass(duty) {
+    if (!duty) return '';
+    if (duty.includes('Morning 1')) return 'duty-morning1';
+    if (duty.includes('Morning 2')) return 'duty-morning2';
+    if (duty.includes('Afternoon 1')) return 'duty-afternoon1';
+    if (duty.includes('Afternoon 2')) return 'duty-afternoon2';
+    if (duty.includes('Night')) return 'duty-night';
+    if (duty.includes('Off')) return 'duty-off';
+    return '';
+}
+
 // ========== DUTY CHANGE FIRESTORE ==========
 async function saveDutyChangeRequest(request) {
     if (!db || !firebaseConnected) return false;
@@ -88,7 +110,7 @@ async function saveDutyChangeRequest(request) {
         const docId = `${request.requesterId}_${request.swapDate}_${Date.now()}`;
         await db.collection('dutyChanges').doc(docId).set({
             ...request,
-            status: 'pending_accept', // pending_accept, pending_approval, approved, rejected
+            status: 'pending_accept',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         return true;
@@ -144,16 +166,6 @@ async function deleteDutyChange(requestId) {
 }
 
 // ========== REQUEST LIMIT CHECKS ==========
-function getMonthHalf(dateStr) {
-    if (!dateStr) return 'first';
-    const day = parseInt(dateStr.split('-')[2]);
-    return day <= 15 ? 'first' : 'second';
-}
-
-function isOffDuty(duty) {
-    return duty && duty.includes('Off Duty');
-}
-
 function getRequestLimitInfo(staffId, allRequests) {
     const staffRequests = allRequests.filter(r => r.requesterId === staffId);
     
@@ -616,17 +628,6 @@ function updateAcceptStaffDetails(staffId) {
     updateRequestSummary();
 }
 
-function getDutyBadgeClass(duty) {
-    if (!duty) return '';
-    if (duty.includes('Morning 1')) return 'duty-morning1';
-    if (duty.includes('Morning 2')) return 'duty-morning2';
-    if (duty.includes('Afternoon 1')) return 'duty-afternoon1';
-    if (duty.includes('Afternoon 2')) return 'duty-afternoon2';
-    if (duty.includes('Night')) return 'duty-night';
-    if (duty.includes('Off')) return 'duty-off';
-    return '';
-}
-
 function updateRequestSummary() {
     const requestStaffName = document.getElementById('requestStaffName').value;
     const requestStaffRcNo = document.getElementById('requestStaffRcNo').value;
@@ -722,10 +723,6 @@ function updateRequestLimitDisplay() {
             warning.style.display = 'none';
         }
     }
-}
-
-function isOffDuty(duty) {
-    return duty && duty.includes('Off Duty');
 }
 
 async function submitDutyChange() {
