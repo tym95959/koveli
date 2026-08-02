@@ -85,7 +85,7 @@ async function syncStaffToFirebase(staff) {
 async function saveDutyChangeRequest(request) {
     if (!db || !firebaseConnected) return false;
     try {
-        const docId = `${request.requesterId}_${request.dutyDate}_${request.dutyShift}_${Date.now()}`;
+        const docId = `${request.requesterId}_${request.swapDate}_${Date.now()}`;
         await db.collection('dutyChanges').doc(docId).set({
             ...request,
             status: 'pending',
@@ -104,8 +104,7 @@ async function loadDutyChangeRequests(filters = {}) {
         let q = db.collection('dutyChanges');
         if (filters.requesterId) q = q.where('requesterId', '==', filters.requesterId);
         if (filters.status) q = q.where('status', '==', filters.status);
-        if (filters.dutyDate) q = q.where('dutyDate', '==', filters.dutyDate);
-        if (filters.dutyShift) q = q.where('dutyShift', '==', filters.dutyShift);
+        if (filters.swapDate) q = q.where('swapDate', '==', filters.swapDate);
         
         const snap = await q.orderBy('createdAt', 'desc').get();
         const results = [];
@@ -527,11 +526,10 @@ async function saveNewCode() {
 
 // ========== DUTY CHANGE UI ==========
 function populateDutyForm(staff) {
-    // Set request staff details
     document.getElementById('requestStaffName').value = staff.name;
     document.getElementById('requestStaffRcNo').value = staff.rcno || '';
     
-    const dateInput = document.getElementById('dutyDate');
+    const dateInput = document.getElementById('swapDate');
     if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
     
     // Populate accept staff dropdown
@@ -568,40 +566,60 @@ function updateAcceptStaffDetails(staffId) {
     updateRequestSummary();
 }
 
+function getDutyBadgeClass(duty) {
+    if (!duty) return '';
+    if (duty.includes('Morning 1')) return 'duty-morning1';
+    if (duty.includes('Morning 2')) return 'duty-morning2';
+    if (duty.includes('Afternoon 1')) return 'duty-afternoon1';
+    if (duty.includes('Afternoon 2')) return 'duty-afternoon2';
+    if (duty.includes('Night')) return 'duty-night';
+    if (duty.includes('Off')) return 'duty-off';
+    return '';
+}
+
 function updateRequestSummary() {
     const requestStaffName = document.getElementById('requestStaffName').value;
     const requestStaffRcNo = document.getElementById('requestStaffRcNo').value;
-    const dutyDate = document.getElementById('dutyDate').value;
-    const dutyShift = document.getElementById('dutyShift').value;
+    const requestDuty = document.getElementById('requestCurrentDuty').value;
     const acceptStaffName = document.getElementById('acceptStaffName').value;
     const acceptStaffRcNo = document.getElementById('acceptStaffRcNo').value;
+    const acceptDuty = document.getElementById('acceptCurrentDuty').value;
+    const swapDate = document.getElementById('swapDate').value;
+    const reason = document.getElementById('swapReason').value;
     
     const summaryDiv = document.getElementById('requestSummary');
     
-    if (!requestStaffName || !dutyDate || !acceptStaffName) {
-        summaryDiv.innerHTML = '<p style="color: #b28b44;">Please fill all details to see summary</p>';
+    if (!requestStaffName || !requestDuty || !acceptStaffName || !acceptDuty || !swapDate) {
+        summaryDiv.innerHTML = '<p style="color: #b28b44;">Please fill all required details to see summary</p>';
         return;
     }
     
-    const shiftText = dutyShift === 'Morning' ? '🌅 Morning (07:30 - 15:30)' : '🌙 Evening (15:30 - 23:30)';
-    
     summaryDiv.innerHTML = `
         <div style="background: #f8f1e0; padding: 15px; border-radius: 16px; margin-top: 10px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 12px;">
                 <div style="border-right: 1px solid #e0d0b0; padding-right: 15px;">
-                    <div style="font-weight: 700; color: #b87c1a;">Request Staff</div>
-                    <div style="margin-top: 5px;">👤 ${requestStaffName}</div>
+                    <div style="font-weight: 700; color: #b87c1a;">👤 Request Staff</div>
+                    <div style="margin-top: 5px;">${requestStaffName}</div>
                     <div style="font-size: 0.85rem; color: #7a5c1a;">RC: ${requestStaffRcNo}</div>
+                    <div style="margin-top: 4px;">
+                        <span class="duty-badge ${getDutyBadgeClass(requestDuty)}">${requestDuty}</span>
+                    </div>
                 </div>
                 <div>
-                    <div style="font-weight: 700; color: #2c6e2c;">Accept Staff</div>
-                    <div style="margin-top: 5px;">👤 ${acceptStaffName}</div>
+                    <div style="font-weight: 700; color: #2c6e2c;">🤝 Accept Staff</div>
+                    <div style="margin-top: 5px;">${acceptStaffName}</div>
                     <div style="font-size: 0.85rem; color: #7a5c1a;">RC: ${acceptStaffRcNo}</div>
+                    <div style="margin-top: 4px;">
+                        <span class="duty-badge ${getDutyBadgeClass(acceptDuty)}">${acceptDuty}</span>
+                    </div>
                 </div>
             </div>
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0d0b0;">
-                <div style="font-weight: 600;">📅 Date: ${dutyDate}</div>
-                <div style="font-weight: 600;">⏰ Shift: ${shiftText}</div>
+            <div style="padding-top: 12px; border-top: 1px solid #e0d0b0;">
+                <div style="font-weight: 600;">📅 Swap Date: ${swapDate}</div>
+                ${reason ? `<div style="font-weight: 600; margin-top: 4px;">📝 Reason: ${reason}</div>` : ''}
+            </div>
+            <div style="margin-top: 10px; padding: 8px; background: #fff8e0; border-radius: 8px; text-align: center; font-weight: 600; color: #b87c1a;">
+                🔄 ${requestStaffName} (${requestDuty}) ↔ ${acceptStaffName} (${acceptDuty})
             </div>
         </div>
     `;
@@ -613,12 +631,16 @@ async function submitDutyChange() {
         return;
     }
     
-    const date = document.getElementById('dutyDate').value;
-    const shift = document.getElementById('dutyShift').value;
+    const requestDuty = document.getElementById('requestCurrentDuty').value;
     const acceptId = document.getElementById('dutyAcceptStaff').value;
+    const acceptDuty = document.getElementById('acceptCurrentDuty').value;
+    const swapDate = document.getElementById('swapDate').value;
+    const reason = document.getElementById('swapReason').value;
     
-    if (!date) { showTemporaryFeedback('⚠️ Select duty date', true); return; }
+    if (!requestDuty) { showTemporaryFeedback('⚠️ Select your current duty', true); return; }
     if (!acceptId) { showTemporaryFeedback('⚠️ Select accepting staff', true); return; }
+    if (!acceptDuty) { showTemporaryFeedback('⚠️ Select accept staff current duty', true); return; }
+    if (!swapDate) { showTemporaryFeedback('⚠️ Select swap date', true); return; }
     
     const acceptStaff = getStaffById(acceptId);
     if (!acceptStaff) { showTemporaryFeedback('⚠️ Invalid staff', true); return; }
@@ -627,14 +649,14 @@ async function submitDutyChange() {
         return; 
     }
     
+    // Check if request already exists for this date
     const existing = await loadDutyChangeRequests({ 
         requesterId: currentLoggedInStaff.id,
-        dutyDate: date,
-        dutyShift: shift
+        swapDate: swapDate
     });
     const hasPending = existing.some(r => r.status === 'pending');
     if (hasPending) {
-        showTemporaryFeedback('⚠️ You already have a pending request for this date/shift', true);
+        showTemporaryFeedback('⚠️ You already have a pending swap request for this date', true);
         return;
     }
     
@@ -642,20 +664,24 @@ async function submitDutyChange() {
         requesterId: currentLoggedInStaff.id,
         requesterName: currentLoggedInStaff.name,
         requesterRcNo: currentLoggedInStaff.rcno || '',
-        dutyDate: date,
-        dutyShift: shift,
+        requesterDuty: requestDuty,
         acceptStaffId: acceptStaff.id,
         acceptStaffName: acceptStaff.name,
         acceptStaffRcNo: acceptStaff.rcno || '',
+        acceptStaffDuty: acceptDuty,
+        swapDate: swapDate,
+        reason: reason || '',
         status: 'pending'
     };
     
     const ok = await saveDutyChangeRequest(request);
     if (ok) {
-        showTemporaryFeedback('✅ Duty change request submitted!');
+        showTemporaryFeedback('✅ Duty swap request submitted!');
         document.getElementById('dutyAcceptStaff').value = '';
         document.getElementById('acceptStaffName').value = '';
         document.getElementById('acceptStaffRcNo').value = '';
+        document.getElementById('acceptCurrentDuty').value = '';
+        document.getElementById('swapReason').value = '';
         await loadMyDutyRequests();
         await loadAllDutyRequests();
         updateRequestSummary();
@@ -673,20 +699,23 @@ async function loadMyDutyRequests() {
     
     const requests = await loadDutyChangeRequests({ requesterId: currentLoggedInStaff.id });
     if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No requests yet</div>';
+        container.innerHTML = '<div class="empty-state">No swap requests yet</div>';
         return;
     }
     
     container.innerHTML = requests.map(r => `
         <div class="request-item">
             <div class="request-info">
-                <div><strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift}</div>
+                <div><strong>📅 ${r.swapDate}</strong></div>
                 <div style="font-size: 0.85rem; margin-top: 4px;">
                     👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
                 <div style="font-size: 0.85rem;">
                     🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
                 </div>
+                ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
                 <div style="margin-top: 4px;">
                     Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
                 </div>
@@ -713,7 +742,7 @@ async function loadAllDutyRequests() {
     const requests = await loadDutyChangeRequests({});
     
     if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No requests</div>';
+        container.innerHTML = '<div class="empty-state">No swap requests</div>';
         return;
     }
     
@@ -726,13 +755,16 @@ async function loadAllDutyRequests() {
     container.innerHTML = requests.map(r => `
         <div class="request-item">
             <div class="request-info">
-                <div><strong>📅 ${r.dutyDate}</strong> · ${r.dutyShift}</div>
+                <div><strong>📅 ${r.swapDate}</strong></div>
                 <div style="font-size: 0.85rem; margin-top: 4px;">
                     👤 Request: ${r.requesterName} (RC: ${r.requesterRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.requesterDuty)}">${r.requesterDuty}</span>
                 </div>
                 <div style="font-size: 0.85rem;">
                     🤝 Accept: ${r.acceptStaffName} (RC: ${r.acceptStaffRcNo || ''})
+                    <span class="duty-badge ${getDutyBadgeClass(r.acceptStaffDuty)}">${r.acceptStaffDuty}</span>
                 </div>
+                ${r.reason ? `<div style="font-size: 0.8rem; color: #7a5c1a;">📝 ${r.reason}</div>` : ''}
                 <div style="margin-top: 4px;">
                     Status: <span class="badge badge-${r.status}">${r.status.toUpperCase()}</span>
                 </div>
@@ -750,7 +782,7 @@ async function loadAllDutyRequests() {
 
 // ========== GLOBAL FUNCTIONS ==========
 window.cancelDutyRequest = async function(id) {
-    if (!confirm('Cancel this request?')) return;
+    if (!confirm('Cancel this swap request?')) return;
     const ok = await deleteDutyChange(id);
     if (ok) {
         showTemporaryFeedback('Request cancelled');
@@ -762,7 +794,7 @@ window.cancelDutyRequest = async function(id) {
 window.approveDutyRequest = async function(id) {
     const ok = await updateDutyChangeStatus(id, 'approved');
     if (ok) {
-        showTemporaryFeedback('✅ Request approved');
+        showTemporaryFeedback('✅ Swap request approved');
         await loadAllDutyRequests();
         await loadMyDutyRequests();
     }
@@ -771,7 +803,7 @@ window.approveDutyRequest = async function(id) {
 window.rejectDutyRequest = async function(id) {
     const ok = await updateDutyChangeStatus(id, 'rejected');
     if (ok) {
-        showTemporaryFeedback('❌ Request rejected');
+        showTemporaryFeedback('❌ Swap request rejected');
         await loadAllDutyRequests();
         await loadMyDutyRequests();
     }
@@ -801,31 +833,24 @@ function showTemporaryFeedback(message, isError = false) {
 
 // ========== INIT ==========
 async function initApp() {
-    // Init Firebase
     initFirebase();
-    
-    // Init staff data
     initStaffData();
     
-    // Load credentials from Firebase
     if (firebaseConnected) {
         await loadCredentialsFromFirebase();
     }
     
-    // Setup pattern lock
     initPatternLock();
     buildKeypad();
     initChangePatternGrid();
     buildChangePinKeypad();
     
-    // Populate login dropdown
     const loginSelect = document.getElementById('loginStaffSelect');
     loginSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
     staffData.forEach(s => {
         loginSelect.appendChild(new Option(`${s.name} (RC: ${s.rcno})`, s.id));
     });
     
-    // Login dropdown handler
     loginSelect.addEventListener('change', async (e) => {
         const selectedValue = e.target.value;
         if (!selectedValue) {
@@ -846,29 +871,25 @@ async function initApp() {
         const s = getStaffById(selectedValue);
         if (s) {
             const result = await openPasswordModal(s, loginSelect, loginSelect.value);
-            if (result?.success) {
-                // Already handled in attemptAutoVerify
-            } else {
+            if (!result?.success) {
                 if (currentLoggedInStaff) loginSelect.value = currentLoggedInStaff.id;
                 else loginSelect.value = '';
             }
         }
     });
     
-    // Accept staff dropdown change
     document.getElementById('dutyAcceptStaff').addEventListener('change', (e) => {
         updateAcceptStaffDetails(e.target.value);
     });
     
-    // Form changes update summary
-    document.getElementById('dutyDate').addEventListener('change', updateRequestSummary);
-    document.getElementById('dutyShift').addEventListener('change', updateRequestSummary);
+    document.getElementById('requestCurrentDuty').addEventListener('change', updateRequestSummary);
+    document.getElementById('acceptCurrentDuty').addEventListener('change', updateRequestSummary);
+    document.getElementById('swapDate').addEventListener('change', updateRequestSummary);
+    document.getElementById('swapReason').addEventListener('input', updateRequestSummary);
     
-    // Submit duty change
     document.getElementById('submitDutyChangeBtn').addEventListener('click', submitDutyChange);
     
-    // Set default date
-    const dateInput = document.getElementById('dutyDate');
+    const dateInput = document.getElementById('swapDate');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
     
     // Modal events
@@ -886,7 +907,6 @@ async function initApp() {
     document.getElementById('deleteNumericBtn').onclick = deleteNumeric;
     document.getElementById('modalCloseBtn').onclick = () => closeAuthModal(false);
     
-    // Change password
     document.querySelectorAll('.change-method-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             changeMode = btn.dataset.changeMethod;
@@ -903,7 +923,6 @@ async function initApp() {
     document.getElementById('cancelChangeBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
     document.getElementById('closeChangeModalBtn').onclick = () => document.getElementById('changePasswordModal').classList.remove('active');
     
-    // Profile menu
     const profileBtn = document.getElementById('profileButton');
     const profileMenu = document.getElementById('profileMenu');
     profileBtn.addEventListener('click', (e) => {
@@ -936,14 +955,12 @@ async function initApp() {
         profileMenu.classList.remove('show');
     };
     
-    // Initial render
     loadMyDutyRequests();
     loadAllDutyRequests();
     updateRequestSummary();
     
-    console.log('✅ Duty Change App initialized');
+    console.log('✅ Duty Swap App initialized');
     console.log(`📊 ${staffData.length} staff members loaded`);
 }
 
-// Start app
 document.addEventListener('DOMContentLoaded', initApp);
