@@ -214,16 +214,30 @@ function getLoggedInStaff() {
     try {
         const data = localStorage.getItem(STORAGE_KEY);
         if (data) {
-            const parsed = JSON.parse(data);
-            if (staffData.length > 0) {
-                return staffData.find(s => s.id === parsed.id) || null;
-            }
-            return parsed;
+            return JSON.parse(data);
         }
         return null;
     } catch {
         return null;
     }
+}
+
+// ========== VALIDATE AND RESTORE SESSION ==========
+async function validateAndRestoreSession() {
+    const savedData = getLoggedInStaff();
+    if (!savedData) return null;
+    
+    // Load all staff data first
+    await loadStaffForLoggedInUser();
+    
+    // Find the staff in the loaded data
+    const staff = getStaffById(savedData.id);
+    if (staff) {
+        // Load credentials
+        await loadSpecificStaffCredentials(staff.id);
+        return staff;
+    }
+    return null;
 }
 
 // ========== STAFF DATA FROM FIREBASE (LAZY LOAD) ==========
@@ -2036,6 +2050,9 @@ function logoutUser() {
     document.getElementById('acceptCurrentDuty').value = '';
     document.getElementById('swapReason').value = '';
 
+    // Close mobile menu if open
+    if (isMobileMenuOpen) toggleMobileMenu();
+
     showTemporaryFeedback('👋 Logged out!');
     console.log('👋 User logged out');
 }
@@ -2188,45 +2205,36 @@ async function initApp() {
     // 5. Initialize mobile features
     initMobileFeatures();
 
-    // 6. Check for persistent login
-    const savedStaff = getLoggedInStaff();
-    if (savedStaff) {
-        const staff = getStaffById(savedStaff.id);
-        if (staff) {
-            // Load credentials for this staff
-            await loadSpecificStaffCredentials(staff.id);
+    // 6. Check for persistent login - FIXED
+    const restoredStaff = await validateAndRestoreSession();
+    if (restoredStaff) {
+        currentLoggedInStaff = restoredStaff;
+        document.getElementById('currentUserDisplay').style.display = 'inline-block';
+        document.getElementById('currentUserName').innerHTML = `${restoredStaff.name} (RC: ${restoredStaff.rcno})`;
+        document.getElementById('profileShortName').innerHTML = restoredStaff.name.split(' ')[0];
+        document.getElementById('profileAvatar').innerHTML = restoredStaff.name.charAt(0).toUpperCase();
 
-            // Also load all staff data for this user (only once)
-            await loadStaffForLoggedInUser();
-
-            currentLoggedInStaff = staff;
-            document.getElementById('currentUserDisplay').style.display = 'inline-block';
-            document.getElementById('currentUserName').innerHTML = `${staff.name} (RC: ${staff.rcno})`;
-            document.getElementById('profileShortName').innerHTML = staff.name.split(' ')[0];
-            document.getElementById('profileAvatar').innerHTML = staff.name.charAt(0).toUpperCase();
-
-            // Set search input and selected display
-            if (searchInput) {
-                searchInput.value = staff.name;
-            }
-            const selectedDisplay = document.getElementById('selectedStaffDisplay');
-            const selectedName = document.getElementById('selectedStaffName');
-            const selectedRc = document.getElementById('selectedStaffRc');
-            if (selectedDisplay && selectedName && selectedRc) {
-                selectedDisplay.style.display = 'block';
-                selectedName.textContent = staff.name;
-                selectedRc.textContent = `RC: ${staff.rcno} | ${staff.role}`;
-            }
-            const hiddenSelect = document.getElementById('loginStaffSelect');
-            if (hiddenSelect) {
-                hiddenSelect.value = staff.id;
-            }
-
-            populateDutyForm(staff);
-            await loadAllData();
-
-            showTemporaryFeedback(`👋 Welcome back ${staff.name}!`);
+        // Set search input and selected display
+        if (searchInput) {
+            searchInput.value = restoredStaff.name;
         }
+        const selectedDisplay = document.getElementById('selectedStaffDisplay');
+        const selectedName = document.getElementById('selectedStaffName');
+        const selectedRc = document.getElementById('selectedStaffRc');
+        if (selectedDisplay && selectedName && selectedRc) {
+            selectedDisplay.style.display = 'block';
+            selectedName.textContent = restoredStaff.name;
+            selectedRc.textContent = `RC: ${restoredStaff.rcno} | ${restoredStaff.role}`;
+        }
+        const hiddenSelect = document.getElementById('loginStaffSelect');
+        if (hiddenSelect) {
+            hiddenSelect.value = restoredStaff.id;
+        }
+
+        populateDutyForm(restoredStaff);
+        await loadAllData();
+
+        showTemporaryFeedback(`👋 Welcome back ${restoredStaff.name}!`);
     }
 
     // ========== LOGIN EVENT ==========
