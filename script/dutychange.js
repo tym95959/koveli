@@ -1017,13 +1017,14 @@ function setupSearchableDropdown() {
             clearTimeout(searchTimeout);
         }
 
+        // Hide dropdown if less than 3 characters
         if (term.length < 3) {
             dropdownList.classList.remove('show');
             isDropdownOpen = false;
             return;
         }
 
-        // Show loading state
+        // Show loading state immediately when typing starts
         dropdownList.innerHTML = `
             <div class="loading-results">
                 <span class="spinner-small"></span> Searching by Name or RC...
@@ -1032,6 +1033,7 @@ function setupSearchableDropdown() {
         dropdownList.classList.add('show');
         isDropdownOpen = true;
 
+        // Debounce the search
         searchTimeout = setTimeout(async () => {
             const results = await loadStaffFromFirebase(term);
             renderDropdownResults(results, term);
@@ -1212,6 +1214,7 @@ function setupSearchableDropdown() {
 }
 
 // ========== ACCEPT STAFF SEARCH FUNCTIONS ==========
+// ========== ACCEPT STAFF SEARCH FUNCTIONS ==========
 function setupAcceptStaffSearch() {
     acceptSearchInput = document.getElementById('acceptSearchInput');
     acceptDropdownList = document.getElementById('acceptDropdownList');
@@ -1253,13 +1256,22 @@ function setupAcceptStaffSearch() {
         acceptDropdownList.classList.add('show');
 
         acceptSearchTimeout = setTimeout(async () => {
+            // Use the same search function as login
             const results = await loadStaffFromFirebase(term);
-            // Filter results to exclude self and match role
-            const filteredResults = results.filter(s => 
-                s.id !== currentLoggedInStaff?.id && 
-                s.role === currentLoggedInStaff?.role
-            );
-            renderAcceptDropdownResults(filteredResults, term);
+            
+            // Only filter if user is logged in
+            if (currentLoggedInStaff) {
+                // Filter: same role, exclude self
+                const filteredResults = results.filter(s => 
+                    s.id !== currentLoggedInStaff.id && 
+                    s.role === currentLoggedInStaff.role
+                );
+                renderAcceptDropdownResults(filteredResults, term);
+            } else {
+                // If not logged in, show all results (or empty)
+                showTemporaryFeedback('⚠️ Please login first', true);
+                renderAcceptDropdownResults([], term);
+            }
         }, 400);
     });
 
@@ -1270,11 +1282,15 @@ function setupAcceptStaffSearch() {
             const term = acceptSearchInput.value;
             if (term.length >= 3) {
                 loadStaffFromFirebase(term).then(results => {
-                    const filteredResults = results.filter(s => 
-                        s.id !== currentLoggedInStaff?.id && 
-                        s.role === currentLoggedInStaff?.role
-                    );
-                    renderAcceptDropdownResults(filteredResults, term);
+                    if (currentLoggedInStaff) {
+                        const filteredResults = results.filter(s => 
+                            s.id !== currentLoggedInStaff.id && 
+                            s.role === currentLoggedInStaff.role
+                        );
+                        renderAcceptDropdownResults(filteredResults, term);
+                    } else {
+                        renderAcceptDropdownResults([], term);
+                    }
                 });
             }
         }
@@ -1435,14 +1451,15 @@ function setupAcceptStaffSearch() {
             const term = acceptSearchInput.value;
             loadStaffFromFirebase(term).then(results => {
                 const filteredResults = results.filter(s => 
-                    s.id !== currentLoggedInStaff?.id && 
-                    s.role === currentLoggedInStaff?.role
+                    s.id !== currentLoggedInStaff.id && 
+                    s.role === currentLoggedInStaff.role
                 );
                 renderAcceptDropdownResults(filteredResults, term);
             });
         }
     });
 }
+
 
 // ========== DUTY CHANGE UI ==========
 function populateDutyForm(staff) {
