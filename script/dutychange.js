@@ -1231,7 +1231,7 @@ function setupAcceptStaffSearch() {
         }
     });
 
-    // Handle input search - minimum 3 characters
+    // Handle input search - minimum 3 characters (same as login)
     acceptSearchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
 
@@ -1244,32 +1244,41 @@ function setupAcceptStaffSearch() {
             return;
         }
 
-        // Show loading state
+        // Show loading state (same as login)
         acceptDropdownList.innerHTML = `
             <div class="loading-results">
-                <span class="spinner-small"></span> Searching staff...
+                <span class="spinner-small"></span> Searching by Name or RC...
             </div>
         `;
         acceptDropdownList.classList.add('show');
 
         acceptSearchTimeout = setTimeout(async () => {
-            const results = await searchAcceptStaff(term);
-            renderAcceptDropdownResults(results, term);
+            const results = await loadStaffFromFirebase(term);
+            // Filter results to exclude self and match role
+            const filteredResults = results.filter(s => 
+                s.id !== currentLoggedInStaff?.id && 
+                s.role === currentLoggedInStaff?.role
+            );
+            renderAcceptDropdownResults(filteredResults, term);
         }, 400);
     });
 
-    // Handle Enter key
+    // Handle Enter key (same as login)
     acceptSearchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             const term = acceptSearchInput.value;
             if (term.length >= 3) {
-                searchAcceptStaff(term).then(results => {
-                    renderAcceptDropdownResults(results, term);
+                loadStaffFromFirebase(term).then(results => {
+                    const filteredResults = results.filter(s => 
+                        s.id !== currentLoggedInStaff?.id && 
+                        s.role === currentLoggedInStaff?.role
+                    );
+                    renderAcceptDropdownResults(filteredResults, term);
                 });
             }
         }
-        // Arrow keys for navigation
+        // Arrow keys for navigation (same as login)
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
             const items = acceptDropdownList.querySelectorAll('.dropdown-item');
@@ -1292,36 +1301,18 @@ function setupAcceptStaffSearch() {
         }
     });
 
-    // Search accept staff
-    async function searchAcceptStaff(searchTerm) {
-        if (!currentLoggedInStaff) {
-            showTemporaryFeedback('⚠️ Please login first', true);
-            return [];
-        }
-
-        const term = searchTerm.toLowerCase().trim();
-        if (term.length < 3) return [];
-
-        // Use existing staffData or load from Firebase
-        let staffToSearch = staffData.length > 0 ? staffData : await loadStaffFromFirebase(term);
-        
-        // Filter: same role, exclude self
-        const numericTerm = term.replace(/[^0-9]/g, '');
-        const filtered = staffToSearch.filter(s => 
-            s.role === currentLoggedInStaff.role && 
-            s.id !== currentLoggedInStaff.id &&
-            (s.name.toLowerCase().includes(term) || 
-             s.rcno.toString().toLowerCase().includes(term) ||
-             s.rcno.toString().toLowerCase().replace(/[^0-9]/g, '').includes(numericTerm))
-        );
-
-        acceptStaffData = filtered;
-        return filtered;
-    }
-
-    // Render dropdown results
+    // Render dropdown results (identical to login version)
     function renderAcceptDropdownResults(results, searchTerm) {
         if (!acceptDropdownList) return;
+
+        if (isStaffLoading) {
+            acceptDropdownList.innerHTML = `
+                <div class="loading-results">
+                    <span class="spinner-small"></span> Searching...
+                </div>
+            `;
+            return;
+        }
 
         if (results.length === 0) {
             acceptDropdownList.innerHTML = `
@@ -1370,7 +1361,7 @@ function setupAcceptStaffSearch() {
                     <div class="item-meta">
                         <span class="role-badge">${staff.role}</span>
                         ${rcMatch ? '<span class="match-badge">✅ RC Match</span>' : ''}
-                        ${nameMatch ? '<span class="match-badge">✅ Name Match</span>' : ''}
+                        ${nameMatch ? '<span class="match-badge name">✅ Name Match</span>' : ''}
                     </div>
                 </div>
             `;
@@ -1378,7 +1369,7 @@ function setupAcceptStaffSearch() {
 
         acceptDropdownList.innerHTML = html;
 
-        // Add click handlers
+        // Add click handlers (same as login)
         acceptDropdownList.querySelectorAll('.dropdown-item').forEach(item => {
             item.addEventListener('click', () => {
                 const id = item.dataset.id;
@@ -1433,15 +1424,21 @@ function setupAcceptStaffSearch() {
         });
     }
 
-    // Show dropdown when input gets focus
+    // Show dropdown when input gets focus (same as login)
     acceptSearchInput.addEventListener('focus', () => {
-        if (acceptSearchInput.value.length >= 3 && acceptStaffData.length > 0) {
-            acceptDropdownList.classList.add('show');
-            renderAcceptDropdownResults(acceptStaffData, acceptSearchInput.value);
-        } else if (acceptSearchInput.value.length >= 3) {
+        if (!currentLoggedInStaff) {
+            showTemporaryFeedback('⚠️ Please login first', true);
+            return;
+        }
+        
+        if (acceptSearchInput.value.length >= 3) {
             const term = acceptSearchInput.value;
-            searchAcceptStaff(term).then(results => {
-                renderAcceptDropdownResults(results, term);
+            loadStaffFromFirebase(term).then(results => {
+                const filteredResults = results.filter(s => 
+                    s.id !== currentLoggedInStaff?.id && 
+                    s.role === currentLoggedInStaff?.role
+                );
+                renderAcceptDropdownResults(filteredResults, term);
             });
         }
     });
