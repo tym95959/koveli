@@ -21,6 +21,163 @@ let acceptDropdownList = null;
 let acceptSearchInput = null;
 let acceptStaffData = [];
 
+// Mobile menu state
+let isMobileMenuOpen = false;
+let activeTab = 'request';
+
+// ========== MOBILE FUNCTIONS ==========
+function initMobileFeatures() {
+    // Mobile menu toggle
+    const menuToggle = document.getElementById('mobileMenuToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('mobileOverlay');
+    
+    if (menuToggle && mobileMenu) {
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMobileMenu();
+        });
+    }
+    
+    if (overlay) {
+        overlay.addEventListener('click', toggleMobileMenu);
+    }
+    
+    // Close menu on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isMobileMenuOpen) {
+            toggleMobileMenu();
+        }
+    });
+    
+    // Handle tab switching on mobile
+    const tabButtons = document.querySelectorAll('.mobile-tab-btn');
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tabId = this.dataset.tab;
+            switchMobileTab(tabId);
+            if (isMobileMenuOpen) toggleMobileMenu();
+        });
+    });
+    
+    // Swipe gestures for mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    });
+    
+    document.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    });
+    
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        const diff = touchStartX - touchEndX;
+        
+        if (Math.abs(diff) > swipeThreshold) {
+            const tabs = ['request', 'requests', 'received', 'admin'];
+            const currentIndex = tabs.indexOf(activeTab);
+            
+            if (diff > 0 && currentIndex < tabs.length - 1) {
+                // Swipe left - next tab
+                switchMobileTab(tabs[currentIndex + 1]);
+            } else if (diff < 0 && currentIndex > 0) {
+                // Swipe right - previous tab
+                switchMobileTab(tabs[currentIndex - 1]);
+            }
+        }
+    }
+    
+    // Pull to refresh
+    let pullStartY = 0;
+    let pullEndY = 0;
+    let isPulling = false;
+    const pullToRefresh = document.getElementById('pullToRefresh');
+    
+    document.addEventListener('touchstart', (e) => {
+        if (window.scrollY === 0) {
+            pullStartY = e.touches[0].clientY;
+            isPulling = true;
+        }
+    });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (isPulling && window.scrollY === 0) {
+            pullEndY = e.touches[0].clientY;
+            const pullDistance = pullEndY - pullStartY;
+            
+            if (pullDistance > 50 && pullToRefresh) {
+                pullToRefresh.style.display = 'block';
+                pullToRefresh.innerHTML = '🔄 Release to refresh...';
+            }
+        }
+    });
+    
+    document.addEventListener('touchend', () => {
+        if (isPulling && pullToRefresh && pullToRefresh.style.display === 'block') {
+            pullToRefresh.innerHTML = '🔄 Refreshing...';
+            refreshData();
+            setTimeout(() => {
+                pullToRefresh.style.display = 'none';
+                pullToRefresh.innerHTML = '🔄 Pull to refresh';
+            }, 1500);
+        }
+        isPulling = false;
+    });
+}
+
+function toggleMobileMenu() {
+    const mobileMenu = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('mobileOverlay');
+    const menuToggle = document.getElementById('mobileMenuToggle');
+    
+    isMobileMenuOpen = !isMobileMenuOpen;
+    
+    if (mobileMenu) {
+        mobileMenu.classList.toggle('active');
+    }
+    if (overlay) {
+        overlay.classList.toggle('active');
+    }
+    if (menuToggle) {
+        menuToggle.classList.toggle('active');
+    }
+    
+    // Prevent body scroll when menu is open
+    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : '';
+}
+
+function switchMobileTab(tabId) {
+    activeTab = tabId;
+    
+    // Update tab buttons
+    document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    
+    // Update content panels
+    document.querySelectorAll('.mobile-tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === `${tabId}Content`);
+    });
+    
+    // Scroll to top of content
+    const content = document.getElementById(`${tabId}Content`);
+    if (content) {
+        content.scrollTop = 0;
+    }
+}
+
+function refreshData() {
+    showTemporaryFeedback('🔄 Refreshing...');
+    loadAllData();
+    setTimeout(() => {
+        showTemporaryFeedback('✅ Refreshed!');
+    }, 1000);
+}
+
 // ========== FIREBASE INITIALIZATION ==========
 function initFirebase() {
     if (typeof firebase !== 'undefined' && firebase.firestore) {
@@ -786,6 +943,9 @@ async function attemptAutoVerify(source) {
         await loadAllData();
 
         showTemporaryFeedback(`✅ Welcome ${staff.name}!`);
+        
+        // Close mobile menu if open
+        if (isMobileMenuOpen) toggleMobileMenu();
     } else {
         if (source === 'pattern') { resetPattern(); } else { clearNumeric(); }
         const statusDiv = document.getElementById(source === 'pattern' ? 'patternStatus' : 'numericInput');
@@ -2025,7 +2185,10 @@ async function initApp() {
     // 4. Setup accept staff search
     setupAcceptStaffSearch();
 
-    // 5. Check for persistent login
+    // 5. Initialize mobile features
+    initMobileFeatures();
+
+    // 6. Check for persistent login
     const savedStaff = getLoggedInStaff();
     if (savedStaff) {
         const staff = getStaffById(savedStaff.id);
