@@ -81,7 +81,9 @@ async function loadStaffFromFirebase(searchTerm = '') {
         return [];
     }
 
-    if (searchTerm.length < 3) {
+    // Check if there are at least 3 digits in the search term
+    const digits = searchTerm.replace(/[^0-9]/g, '');
+    if (digits.length < 3) {
         staffData = [];
         staffLoaded = false;
         return [];
@@ -1009,7 +1011,7 @@ function setupSearchableDropdown() {
         }
     });
 
-    // Handle input search - starts searching at 3 characters
+    // Handle input search - starts searching when 3 digits are typed
     searchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
 
@@ -1017,8 +1019,11 @@ function setupSearchableDropdown() {
             clearTimeout(searchTimeout);
         }
 
-        // Hide dropdown and clear results if less than 3 characters
-        if (term.length < 3) {
+        // Extract digits from the input
+        const digits = term.replace(/[^0-9]/g, '');
+        
+        // Only search if there are 3 or more digits
+        if (digits.length < 3) {
             dropdownList.classList.remove('show');
             isDropdownOpen = false;
             staffData = [];
@@ -1034,7 +1039,7 @@ function setupSearchableDropdown() {
         dropdownList.classList.add('show');
         isDropdownOpen = true;
 
-        // Debounce the search
+        // Debounce the search - use the original term for searching
         searchTimeout = setTimeout(async () => {
             const results = await loadStaffFromFirebase(term);
             renderDropdownResults(results, term);
@@ -1046,7 +1051,8 @@ function setupSearchableDropdown() {
         if (e.key === 'Enter') {
             e.preventDefault();
             const term = searchInput.value;
-            if (term.length >= 3) {
+            const digits = term.replace(/[^0-9]/g, '');
+            if (digits.length >= 3) {
                 loadStaffFromFirebase(term).then(results => {
                     renderDropdownResults(results, term);
                 });
@@ -1194,7 +1200,8 @@ function setupSearchableDropdown() {
     // Show dropdown when input gets focus
     searchInput.addEventListener('focus', () => {
         const term = searchInput.value;
-        if (term.length >= 3) {
+        const digits = term.replace(/[^0-9]/g, '');
+        if (digits.length >= 3) {
             loadStaffFromFirebase(term).then(results => {
                 renderDropdownResults(results, term);
             });
@@ -1230,7 +1237,7 @@ function setupAcceptStaffSearch() {
         }
     });
 
-    // Handle input search - starts searching at 3 characters
+    // Handle input search - starts searching when 3 digits are typed
     acceptSearchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
 
@@ -1238,8 +1245,11 @@ function setupAcceptStaffSearch() {
             clearTimeout(acceptSearchTimeout);
         }
 
-        // Hide dropdown if less than 3 characters
-        if (term.length < 3) {
+        // Extract digits from the input
+        const digits = term.replace(/[^0-9]/g, '');
+        
+        // Only search if there are 3 or more digits
+        if (digits.length < 3) {
             acceptDropdownList.classList.remove('show');
             acceptStaffData = [];
             return;
@@ -1279,7 +1289,8 @@ function setupAcceptStaffSearch() {
         if (e.key === 'Enter') {
             e.preventDefault();
             const term = acceptSearchInput.value;
-            if (term.length >= 3) {
+            const digits = term.replace(/[^0-9]/g, '');
+            if (digits.length >= 3) {
                 loadStaffFromFirebase(term).then(results => {
                     if (currentLoggedInStaff) {
                         const filteredResults = results.filter(s => 
@@ -1447,7 +1458,8 @@ function setupAcceptStaffSearch() {
         }
         
         const term = acceptSearchInput.value;
-        if (term.length >= 3) {
+        const digits = term.replace(/[^0-9]/g, '');
+        if (digits.length >= 3) {
             loadStaffFromFirebase(term).then(results => {
                 const filteredResults = results.filter(s => 
                     s.id !== currentLoggedInStaff.id && 
