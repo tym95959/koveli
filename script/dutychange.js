@@ -1009,7 +1009,7 @@ function setupSearchableDropdown() {
         }
     });
 
-    // Handle input search - minimum 3 characters
+    // Handle input search - starts searching at 3 characters
     searchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
 
@@ -1017,14 +1017,15 @@ function setupSearchableDropdown() {
             clearTimeout(searchTimeout);
         }
 
-        // Hide dropdown if less than 3 characters
+        // Hide dropdown and clear results if less than 3 characters
         if (term.length < 3) {
             dropdownList.classList.remove('show');
             isDropdownOpen = false;
+            staffData = [];
             return;
         }
 
-        // Show loading state immediately when typing starts
+        // Show loading state immediately
         dropdownList.innerHTML = `
             <div class="loading-results">
                 <span class="spinner-small"></span> Searching by Name or RC...
@@ -1192,12 +1193,8 @@ function setupSearchableDropdown() {
 
     // Show dropdown when input gets focus
     searchInput.addEventListener('focus', () => {
-        if (searchInput.value.length >= 3 && staffData.length > 0) {
-            dropdownList.classList.add('show');
-            isDropdownOpen = true;
-            renderDropdownResults(staffData, searchInput.value);
-        } else if (searchInput.value.length >= 3) {
-            const term = searchInput.value;
+        const term = searchInput.value;
+        if (term.length >= 3) {
             loadStaffFromFirebase(term).then(results => {
                 renderDropdownResults(results, term);
             });
@@ -1213,7 +1210,6 @@ function setupSearchableDropdown() {
     };
 }
 
-// ========== ACCEPT STAFF SEARCH FUNCTIONS ==========
 // ========== ACCEPT STAFF SEARCH FUNCTIONS ==========
 function setupAcceptStaffSearch() {
     acceptSearchInput = document.getElementById('acceptSearchInput');
@@ -1234,7 +1230,7 @@ function setupAcceptStaffSearch() {
         }
     });
 
-    // Handle input search - minimum 3 characters (same as login)
+    // Handle input search - starts searching at 3 characters
     acceptSearchInput.addEventListener('input', async (e) => {
         const term = e.target.value;
 
@@ -1242,12 +1238,14 @@ function setupAcceptStaffSearch() {
             clearTimeout(acceptSearchTimeout);
         }
 
+        // Hide dropdown if less than 3 characters
         if (term.length < 3) {
             acceptDropdownList.classList.remove('show');
+            acceptStaffData = [];
             return;
         }
 
-        // Show loading state (same as login)
+        // Show loading state immediately
         acceptDropdownList.innerHTML = `
             <div class="loading-results">
                 <span class="spinner-small"></span> Searching by Name or RC...
@@ -1266,16 +1264,17 @@ function setupAcceptStaffSearch() {
                     s.id !== currentLoggedInStaff.id && 
                     s.role === currentLoggedInStaff.role
                 );
+                acceptStaffData = filteredResults;
                 renderAcceptDropdownResults(filteredResults, term);
             } else {
-                // If not logged in, show all results (or empty)
+                // If not logged in, show empty results
                 showTemporaryFeedback('⚠️ Please login first', true);
                 renderAcceptDropdownResults([], term);
             }
         }, 400);
     });
 
-    // Handle Enter key (same as login)
+    // Handle Enter key
     acceptSearchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1294,7 +1293,7 @@ function setupAcceptStaffSearch() {
                 });
             }
         }
-        // Arrow keys for navigation (same as login)
+        // Arrow keys for navigation
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
             const items = acceptDropdownList.querySelectorAll('.dropdown-item');
@@ -1385,7 +1384,7 @@ function setupAcceptStaffSearch() {
 
         acceptDropdownList.innerHTML = html;
 
-        // Add click handlers (same as login)
+        // Add click handlers
         acceptDropdownList.querySelectorAll('.dropdown-item').forEach(item => {
             item.addEventListener('click', () => {
                 const id = item.dataset.id;
@@ -1440,15 +1439,15 @@ function setupAcceptStaffSearch() {
         });
     }
 
-    // Show dropdown when input gets focus (same as login)
+    // Show dropdown when input gets focus
     acceptSearchInput.addEventListener('focus', () => {
         if (!currentLoggedInStaff) {
             showTemporaryFeedback('⚠️ Please login first', true);
             return;
         }
         
-        if (acceptSearchInput.value.length >= 3) {
-            const term = acceptSearchInput.value;
+        const term = acceptSearchInput.value;
+        if (term.length >= 3) {
             loadStaffFromFirebase(term).then(results => {
                 const filteredResults = results.filter(s => 
                     s.id !== currentLoggedInStaff.id && 
@@ -1459,7 +1458,6 @@ function setupAcceptStaffSearch() {
         }
     });
 }
-
 
 // ========== DUTY CHANGE UI ==========
 function populateDutyForm(staff) {
