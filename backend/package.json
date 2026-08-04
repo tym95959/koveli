@@ -1,7 +1,7 @@
 {
-  "name": "login-app-backend",
+  "name": "login-app-aiven",
   "version": "1.0.0",
-  "description": "Login app with PostgreSQL",
+  "description": "Login app with Aiven PostgreSQL",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
