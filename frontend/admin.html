@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>Admin Panel</h1>
+            <div class="header-actions">
+                <span id="userInfo"></span>
+                <button onclick="logout()" class="btn-danger">Logout</button>
+            </div>
+        </header>
+        
+        <div class="admin-content">
+            <aside class="sidebar">
+                <h3>Tables</h3>
+                <div id="tableList"></div>
+                <button onclick="showCreateTableModal()" class="btn-primary">+ Create Table</button>
+            </aside>
+            
+            <main class="main-content">
+                <div id="tableData">
+                    <h2>Select a table from the sidebar</h2>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Create Table Modal -->
+    <div id="createTableModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('createTableModal')">&times;</span>
+            <h2>Create New Table</h2>
+            <form id="createTableForm">
+                <div class="form-group">
+                    <label>Table Name</label>
+                    <input type="text" id="tableName" required>
+                </div>
+                <div id="columnsContainer">
+                    <div class="column-input">
+                        <input type="text" placeholder="Column Name" class="col-name">
+                        <select class="col-type">
+                            <option value="VARCHAR(255)">VARCHAR(255)</option>
+                            <option value="TEXT">TEXT</option>
+                            <option value="INTEGER">INTEGER</option>
+                            <option value="BIGINT">BIGINT</option>
+                            <option value="DECIMAL(10,2)">DECIMAL(10,2)</option>
+                            <option value="BOOLEAN">BOOLEAN</option>
+                            <option value="TIMESTAMP">TIMESTAMP</option>
+                            <option value="DATE">DATE</option>
+                        </select>
+                        <label><input type="checkbox" class="col-notnull"> NOT NULL</label>
+                        <button type="button" onclick="removeColumn(this)" class="btn-danger">×</button>
+                    </div>
+                </div>
+                <button type="button" onclick="addColumn()" class="btn-secondary">+ Add Column</button>
+                <button type="submit" class="btn-primary">Create Table</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Add Data Modal -->
+    <div id="addDataModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addDataModal')">&times;</span>
+            <h2>Add Data</h2>
+            <form id="addDataForm">
+                <div id="dataFields"></div>
+                <button type="submit" class="btn-primary">Add Record</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
