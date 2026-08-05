@@ -1,216 +1,81 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
 const cors = require('cors');
-const { Pool } = require('pg');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
+const pool = require('./db/pool');
+
 const app = express();
-const PORT = process.env.PORT || 5000;
+const port = process.env.PORT || 5000;
 
 // Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// =============================================
-// AIVEN POSTGRESQL CONNECTION
-// =============================================
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false,  // Required for Aiven
-        sslmode: 'require'          // Aiven requires SSL
-    }
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use('/api', limiter);
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Test database connection
-pool.connect((err) => {
-    if (err) {
-        console.log('❌ Aiven PostgreSQL connection failed:', err.message);
-        console.log('💡 Check your DATABASE_URL in .env');
-    } else {
-        console.log('✅ Connected to Aiven PostgreSQL successfully!');
-        console.log('📊 Database:', process.env.DATABASE_URL.split('/').pop().split('?')[0]);
-    }
-});
+// Create tables if they don't exist
+const initTables = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_admin BOOLEAN DEFAULT false
+      );
 
-// =============================================
-// TEST ROUTE
-// =============================================
-app.get('/api/test', (req, res) => {
-    res.json({ 
-        message: '✅ Server is working!',
-        database: 'Aiven PostgreSQL',
-        status: 'Connected'
-    });
-});
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        token VARCHAR(500) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP
+      );
+    `);
+    console.log('Tables initialized successfully');
+    
+    // Create default admin if not exists
+    const bcrypt = require('bcryptjs');
+    const adminPassword = await bcrypt.hash('admin123', 10);
+    await pool.query(
+      `INSERT INTO users (username, email, password_hash, is_admin)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (username) DO NOTHING`,
+      ['admin', 'admin@example.com', adminPassword, true]
+    );
+    console.log('Default admin user created (admin/admin123)');
+  } catch (error) {
+    console.error('Error initializing tables:', error);
+  }
+};
 
-// =============================================
-// REGISTER STAFF
-// =============================================
-app.post('/api/register', async (req, res) => {
-    try {
-        const { username, email, password } = req.body;
-        
-        console.log('📝 Register attempt:', username);
+// Initialize database
+initTables();
 
-        // Validate input
-        if (!username || !email || !password) {
-            return res.status(400).json({ 
-                error: 'All fields are required!' 
-            });
-        }
-
-        // Check if staff exists
-        const staffCheck = await pool.query(
-            'SELECT * FROM staff WHERE username = $1 OR email = $2',
-            [username, email]
-        );
-
-        if (staffCheck.rows.length > 0) {
-            return res.status(400).json({ 
-                error: 'Username or email already exists' 
-            });
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Save staff
-        const result = await pool.query(
-            'INSERT INTO staff (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at',
-            [username, email, hashedPassword]
-        );
-
-        console.log('✅ Staff registered:', username);
-
-        res.json({ 
-            message: 'Registration successful! Please login.',
-            user: result.rows[0]
-        });
-
-    } catch (error) {
-        console.error('❌ Register error:', error);
-        res.status(500).json({ 
-            error: 'Server error: ' + error.message 
-        });
-    }
-});
-
-// =============================================
-// LOGIN STAFF
-// =============================================
-app.post('/api/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        
-        console.log('🔑 Login attempt:', username);
-
-        if (!username || !password) {
-            return res.status(400).json({ 
-                error: 'Username and password required!' 
-            });
-        }
-
-        // Find staff
-        const result = await pool.query(
-            'SELECT * FROM staff WHERE username = $1',
-            [username]
-        );
-
-        const staff = result.rows[0];
-
-        if (!staff) {
-            return res.status(401).json({ 
-                error: 'Invalid username or password' 
-            });
-        }
-
-        // Check password
-        const validPassword = await bcrypt.compare(password, staff.password_hash);
-
-        if (!validPassword) {
-            return res.status(401).json({ 
-                error: 'Invalid username or password' 
-            });
-        }
-
-        console.log('✅ Login successful:', username);
-
-        res.json({
-            message: 'Login successful!',
-            user: {
-                id: staff.id,
-                username: staff.username,
-                email: staff.email,
-                created_at: staff.created_at
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Login error:', error);
-        res.status(500).json({ 
-            error: 'Server error: ' + error.message 
-        });
-    }
-});
-
-// =============================================
-// GET ALL STAFF
-// =============================================
-app.get('/api/staff', async (req, res) => {
-    try {
-        const result = await pool.query(
-            'SELECT id, username, email, created_at FROM staff ORDER BY id'
-        );
-        
-        res.json({ 
-            success: true,
-            count: result.rows.length,
-            staff: result.rows 
-        });
-        
-    } catch (error) {
-        console.error('❌ Error fetching staff:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch staff: ' + error.message 
-        });
-    }
-});
-
-// =============================================
-// DELETE STAFF
-// =============================================
-app.delete('/api/staff/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query(
-            'DELETE FROM staff WHERE id = $1 RETURNING username',
-            [id]
-        );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Staff not found' });
-        }
-        
-        res.json({ 
-            message: `Staff '${result.rows[0].username}' deleted successfully` 
-        });
-        
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// =============================================
-// START SERVER
-// =============================================
-app.listen(PORT, () => {
-    console.log('='.repeat(50));
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`✅ Database: Aiven PostgreSQL`);
-    console.log(`✅ Test: http://localhost:${PORT}/api/test`);
-    console.log(`📝 Register: POST /api/register`);
-    console.log(`🔑 Login: POST /api/login`);
-    console.log(`👥 View staff: GET /api/staff`);
-    console.log('='.repeat(50));
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
