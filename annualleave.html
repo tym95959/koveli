@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, maximum-scale=1.0">
+    <title>Annual Leave Management</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="script/firebase-config.js"></script>
+    
+    <style>
+        /* ========== RESET & BASE ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary: #1a5276;
+            --primary-dark: #0e2f44;
+            --primary-light: #d4e6f1;
+            --secondary: #d4a843;
+            --secondary-light: #f8f1e0;
+            --bg-main: #f0f4f8;
+            --bg-card: #ffffff;
+            --text-dark: #1a2a3a;
+            --text-muted: #4a6a7a;
+            --text-light: #888888;
+            --border-color: #e8ecef;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 24px rgba(0,0,0,0.12);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.3s ease;
+            --header-height: 60px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --max-width: 1400px;
+        }
+
+        html { height: 100%; overflow: hidden; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-dark);
+            line-height: 1.5;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* ========== APP CONTAINER ========== */
+        .app-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-main);
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        /* ========== HEADER ========== */
+        .app-header {
+            background: linear-gradient(135deg, #0e2f44, #1a5276);
+            color: #e8f0f8;
+            padding: 0 20px;
+            height: var(--header-height);
+            min-height: var(--header-height);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .app-header .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .app-header .logo .icon { font-size: 1.4rem; }
+
+        .nav-buttons {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-link {
+            color: #a0c0d0;
+            padding: 5px 10px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover {
+            color: #e8f0f8;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .nav-link.active {
+            color: #e8f0f8;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .profile-btn-container { position: relative; }
+
+        .profile-icon-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #e8f0f8;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: var(--transition);
+            height: 34px;
+        }
+
+        .profile-icon-btn:active { transform: scale(0.95); }
+
+        .profile-avatar { font-size: 1rem; }
+
+        .profile-name-short {
+            font-weight: 500;
+            max-width: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .profile-menu {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: #fff;
+            color: var(--text-dark);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 170px;
+            padding: 6px 0;
+            display: none;
+            z-index: 100;
+        }
+
+        .profile-menu.show { display: block; }
+
+        .profile-menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .profile-menu-item:active { background: var(--primary-light); }
+
+        .profile-menu-item.logout { color: #c0392b; }
+
+        .menu-divider {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 4px 8px;
+        }
+
+        /* ========== SCROLLABLE CONTENT ========== */
+        .scroll-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px 20px;
+            scroll-behavior: smooth;
+            max-width: var(--max-width);
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .scroll-content::-webkit-scrollbar { width: 6px; }
+        .scroll-content::-webkit-scrollbar-track { background: #f0f4f8; border-radius: 10px; }
+        .scroll-content::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+        /* ========== SESSION STATUS ========== */
+        .session-status {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 10px 16px;
+            margin-bottom: 10px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary);
+        }
+
+        .session-user {
+            font-size: 0.85rem;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .session-user strong { color: var(--primary); }
+
+        .session-role {
+            font-size: 0.7rem;
+            background: var(--primary-light);
+            padding: 2px 12px;
+            border-radius: 12px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* ========== MONTH SELECTOR ========== */
+        .month-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: var(--bg-card);
+            padding: 10px 16px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .month-nav {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+
+        .month-nav:hover { background: var(--primary-light); color: var(--primary); }
+        .month-nav:active { transform: scale(0.95); }
+
+        .month-nav.today-btn {
+            background: var(--primary);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 14px;
+            border-radius: 8px;
+        }
+
+        .month-nav.today-btn:hover { background: var(--primary-dark); }
+
+        .month-display {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            min-width: 140px;
+            text-align: center;
+        }
+
+        /* ========== VIEW TOGGLE ========== */
+        .view-toggle {
+            display: flex;
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 4px;
+            margin-bottom: 10px;
+            box-shadow: var(--shadow);
+            gap: 4px;
+        }
+
+        .view-btn {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            background: transparent;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .view-btn:active { transform: scale(0.97); }
+
+        .view-btn.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(26, 82, 118, 0.25);
+        }
+
+        /* ========== STAFF VIEW TABLE ========== */
+        .staff-view-container {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 0;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .table-wrapper {
+            overflow: auto;
+            max-height: 55vh;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-wrapper::-webkit-scrollbar-track { background: #f0f4f8; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+        .annual-leave-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.7rem;
+            min-width: 600px;
+        }
+
+        .annual-leave-table thead { position: sticky; top: 0; z-index: 10; }
+
+        .annual-leave-table th {
+            background: var(--primary);
+            color: white;
+            padding: 6px 5px;
+            text-align: center;
+            font-weight: 600;
+            white-space: nowrap;
+            border: 1px solid var(--primary-dark);
+            min-width: 44px;
+            font-size: 0.65rem;
+        }
+
+        .annual-leave-table th.fixed-col {
+            position: sticky;
+            left: 0;
+            z-index: 11;
+            background: var(--primary);
+            min-width: 100px;
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        .annual-leave-table th.weekend-header { background: #2c7a7a; }
+        .annual-leave-table th.today-header { 
+            border: 2px solid var(--secondary);
+            box-shadow: inset 0 0 10px rgba(212, 168, 67, 0.2);
+        }
+        .annual-leave-table th.holiday-header { background: #6c3483; }
+        .annual-leave-table th.holiday-header::after { content: ' 🎉'; }
+
+        .annual-leave-table td {
+            padding: 3px 4px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            white-space: nowrap;
+            min-width: 44px;
+            height: 28px;
+            font-size: 0.7rem;
+        }
+
+        .annual-leave-table td.fixed-col {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: var(--bg-card);
+            text-align: left;
+            padding-left: 10px;
+            font-weight: 500;
+            min-width: 100px;
+        }
+
+        .annual-leave-table td.fixed-col-name { min-width: 120px; }
+        .annual-leave-table td.fixed-col-rc { min-width: 70px; color: var(--text-muted); font-weight: 400; }
+
+        .annual-leave-table tbody tr:hover td { background: var(--secondary-light); }
+        .annual-leave-table tbody tr:hover td.fixed-col { background: var(--secondary-light); }
+
+        .annual-leave-table .day-cell {
+            cursor: pointer;
+            border-radius: 3px;
+            transition: var(--transition);
+            text-align: center;
+            vertical-align: middle;
+            min-width: 26px;
+            height: 26px;
+        }
+
+        .annual-leave-table .day-cell:hover { transform: scale(1.02); }
+
+        .annual-leave-table .day-cell .blocked-cell {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            color: white;
+            font-weight: 700;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .annual-leave-table .day-cell .blocked-cell:hover { transform: scale(1.12); }
+
+        /* ========== BLOCK COLORS ========== */
+        .block-annual { background: #27ae60 !important; color: white; }
+        .block-sick { background: #e74c3c !important; color: white; }
+        .block-frl { background: #f39c12 !important; color: white; }
+        .block-training { background: #2980b9 !important; color: white; }
+        .block-other { background: #95a5a6 !important; color: white; }
+
+        .block-holiday { background: #6c3483 !important; color: white !important; }
+        .block-holiday .blocked-cell { background: #6c3483 !important; color: white !important; }
+
+        /* ========== HOLIDAY ZERO ========== */
+        .day-cell .blocked-cell.holiday-cell {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            color: white;
+            font-weight: 700;
+            font-size: 0.65rem;
+            cursor: default;
+            background: #6c3483 !important;
+        }
+
+        .day-cell.holiday-empty { background: #f4ecf7; }
+        .day-cell.day-holiday { background: #f4ecf7; }
+        .day-cell.day-holiday .blocked-cell.holiday-cell { background: #6c3483 !important; }
+
+        .day-weekend { background: #f0f3f4; color: var(--text-muted); }
+        .day-today { border: 2px solid var(--secondary) !important; box-shadow: 0 0 8px rgba(212, 168, 67, 0.2); }
+
+        /* ========== CLICKABLE CELLS ========== */
+        .day-cell .blocked-cell.clickable { cursor: pointer; }
+
+        .day-cell .add-cell {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            border: 2px dashed var(--primary);
+        }
+
+        .day-cell .add-cell:hover {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(26, 82, 118, 0.3);
+        }
+
+        /* ========== CALENDAR VIEW ========== */
+        .calendar-view-container {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 14px;
+            box-shadow: var(--shadow);
+            margin-bottom: 10px;
+        }
+
+        .calendar-scroll-wrapper {
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            max-height: 55vh;
+        }
+
+        .calendar-scroll-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+        .calendar-scroll-wrapper::-webkit-scrollbar-track { background: #f0f4f8; }
+        .calendar-scroll-wrapper::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+        #calendarGrid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            min-width: 280px;
+        }
+
+        .calendar-header {
+            font-weight: 600;
+            text-align: center;
+            padding: 6px;
+            background: var(--primary);
+            color: white;
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+        }
+
+        .calendar-day {
+            min-height: 70px;
+            padding: 4px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            transition: var(--transition);
+        }
+
+        .calendar-day:hover { box-shadow: var(--shadow-hover); }
+
+        .calendar-day .day-number {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-dark);
+            margin-bottom: 3px;
+        }
+
+        .calendar-day .day-blocks { display: flex; flex-direction: column; gap: 2px; }
+
+        .calendar-day .block-item {
+            font-size: 0.55rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: white;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .calendar-day.weekend { background: #f8f9fa; }
+        .calendar-day.today { border-color: var(--secondary); border-width: 2px; }
+        .calendar-day.holiday { background: #f4ecf7; border-color: #6c3483; }
+
+        .calendar-day .holiday-name {
+            font-size: 0.5rem;
+            color: #6c3483;
+            font-weight: 600;
+            text-align: center;
+            padding: 2px;
+            background: rgba(108, 52, 131, 0.1);
+            border-radius: 3px;
+            margin-top: 2px;
+        }
+
+        /* ========== LEGEND ========== */
+        .legend-section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 10px 14px;
+            box-shadow: var(--shadow);
+            margin-bottom: 10px;
+        }
+
+        .legend-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 6px;
+        }
+
+        .legend-items {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item .color-box {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .legend-item .color-box.annual { background: #27ae60; }
+        .legend-item .color-box.sick { background: #e74c3c; }
+        .legend-item .color-box.frl { background: #f39c12; }
+        .legend-item .color-box.training { background: #2980b9; }
+        .legend-item .color-box.other { background: #95a5a6; }
+        .legend-item .color-box.available { background: transparent; border: 1px dashed #ccc; }
+        .legend-item .color-box.holiday { background: #6c3483; }
+
+        .legend-item .color-box.holiday-zero-box {
+            background: #6c3483;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 9px;
+            border: 1px solid #6c3483;
+        }
+        .legend-item .color-box.holiday-zero-box::after { content: '0'; color: white; font-size: 11px; }
+
+        .color-box.add-legend {
+            background: transparent;
+            border: 2px dashed var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .color-box.add-legend::after { content: '+'; color: var(--primary); font-size: 14px; }
+
+        .color-box.remove-legend {
+            background: #e74c3c;
+            border: 2px solid #e74c3c;
+        }
+        .color-box.remove-legend::after {
+            content: '✕';
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        /* ========== ADMIN PANEL ========== */
+        .admin-panel {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 14px;
+            box-shadow: var(--shadow);
+            margin-bottom: 10px;
+        }
+
+        .admin-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 10px;
+        }
+
+        .admin-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .admin-controls .field-row { margin-bottom: 0; }
+        .admin-controls .field-row label {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+        .admin-controls .field-row label .required { color: #e74c3c; }
+
+        .admin-select,
+        .admin-input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            background: #f8fafc;
+            -webkit-appearance: none;
+        }
+
+        .admin-select:focus,
+        .admin-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .admin-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .admin-actions .btn-primary,
+        .admin-actions .btn-danger {
+            padding: 8px;
+            font-size: 0.8rem;
+            width: 100%;
+        }
+
+        .admin-actions .btn-danger { background: #c0392b; }
+        .admin-actions .btn-danger:hover { background: #a93226; }
+        .admin-actions .btn-danger:active { transform: scale(0.97); }
+
+        .btn-primary {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--primary), #1a6d8a);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-danger {
+            padding: 8px 16px;
+            background: #c0392b;
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .btn-danger:active { transform: scale(0.97); }
+
+        .admin-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 6px;
+            background: #f5f8fa;
+            border-radius: var(--radius-sm);
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .stat-value {
+            display: block;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .staff-leave-summary {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .summary-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 6px;
+        }
+
+        #staffLeaveSummaryList { max-height: 180px; overflow-y: auto; }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: #f5f8fa;
+            border-radius: var(--radius-sm);
+            margin-bottom: 3px;
+            font-size: 0.75rem;
+        }
+
+        .summary-item .date-range { font-weight: 500; }
+        .summary-item .leave-type {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.6rem;
+            color: white;
+        }
+        .summary-item .leave-type.annual { background: #27ae60; }
+        .summary-item .leave-type.sick { background: #e74c3c; }
+        .summary-item .leave-type.frl { background: #f39c12; }
+        .summary-item .leave-type.training { background: #2980b9; }
+        .summary-item .leave-type.other { background: #95a5a6; }
+
+        .summary-item .remove-btn {
+            background: none;
+            border: none;
+            color: #c0392b;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0 4px;
+        }
+        .summary-item .remove-btn:hover { transform: scale(1.2); }
+
+        .summary-empty {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            padding: 10px;
+        }
+
+        /* ========== HOLIDAY MANAGEMENT ========== */
+        .holiday-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .holiday-controls .field-row { margin-bottom: 0; }
+        .holiday-controls .field-row label {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+        .holiday-controls .field-row label .required { color: #e74c3c; }
+
+        .holiday-list {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .holiday-list .sub-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 6px;
+        }
+
+        .holiday-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: #f5f8fa;
+            border-radius: var(--radius-sm);
+            margin-bottom: 3px;
+            font-size: 0.75rem;
+        }
+
+        .holiday-item .holiday-date { font-weight: 500; color: var(--text-dark); }
+        .holiday-item .holiday-name { color: var(--text-muted); flex: 1; margin-left: 8px; }
+        .holiday-item .remove-btn {
+            background: none;
+            border: none;
+            color: #c0392b;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0 4px;
+        }
+        .holiday-item .remove-btn:hover { transform: scale(1.2); }
+
+        .form-feedback {
+            margin-top: 8px;
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            display: none;
+        }
+
+        .form-feedback.success { display: block; background: #d5f5e3; color: #27ae60; }
+        .form-feedback.error { display: block; background: #fdedec; color: #e74c3c; }
+
+        /* ========== FOOTER ========== */
+        .app-footer {
+            background: var(--bg-card);
+            padding: 10px 16px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-light);
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+            padding-bottom: calc(10px + var(--safe-bottom));
+        }
+
+        /* ========== TOAST ========== */
+        .message-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a2a3a;
+            color: #e8f0f8;
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            z-index: 400;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .message-toast.error { background: #c0392b; }
+
+        /* ========== LOADING POPUP ========== */
+        .loading-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 300;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+
+        .loading-popup.active { display: flex; }
+
+        .loading-content {
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 20px;
+            max-width: 280px;
+            width: 100%;
+            text-align: center;
+            animation: modalIn 0.3s ease;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e8ecef;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes modalIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .loading-title { font-size: 0.95rem; font-weight: 700; color: var(--text-dark); }
+        .loading-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            .scroll-content { padding: 10px 12px; }
+            .app-header .logo { font-size: 0.9rem; }
+            .nav-link { font-size: 0.65rem; padding: 3px 6px; }
+            .admin-controls { grid-template-columns: 1fr; }
+            .admin-actions { grid-template-columns: 1fr; }
+            .admin-stats { grid-template-columns: 1fr 1fr; }
+            .holiday-controls { grid-template-columns: 1fr; }
+            .annual-leave-table { font-size: 0.6rem; min-width: 500px; }
+            .annual-leave-table th.fixed-col { min-width: 70px; }
+            .annual-leave-table td.fixed-col { min-width: 70px; }
+            .annual-leave-table td.fixed-col-name { min-width: 90px; }
+            .annual-leave-table td.fixed-col-rc { min-width: 55px; }
+            .annual-leave-table th,
+            .annual-leave-table td { min-width: 32px; padding: 3px; }
+            .month-display { font-size: 0.9rem; min-width: 110px; }
+            .view-btn { font-size: 0.7rem; padding: 6px; }
+            .calendar-day { min-height: 55px; }
+            .calendar-day .day-number { font-size: 0.7rem; }
+            .calendar-day .block-item { font-size: 0.45rem; }
+            .annual-leave-table .day-cell .blocked-cell,
+            .annual-leave-table .day-cell .add-cell { width: 18px; height: 18px; font-size: 0.55rem; }
+        }
+
+        @media (max-width: 480px) {
+            .month-selector { gap: 6px; padding: 6px 10px; }
+            .month-nav { font-size: 0.9rem; padding: 2px 6px; }
+            .month-display { font-size: 0.8rem; min-width: 90px; }
+            .annual-leave-table { font-size: 0.5rem; min-width: 380px; }
+            .annual-leave-table th.fixed-col { min-width: 50px; padding: 3px 4px; }
+            .annual-leave-table td.fixed-col { padding: 2px 4px; min-width: 50px; }
+            .annual-leave-table td.fixed-col-name { min-width: 70px; }
+            .annual-leave-table td.fixed-col-rc { min-width: 45px; }
+            .annual-leave-table th,
+            .annual-leave-table td { min-width: 26px; padding: 2px; font-size: 0.45rem; }
+            .annual-leave-table .day-cell .blocked-cell,
+            .annual-leave-table .day-cell .add-cell { width: 16px; height: 16px; font-size: 0.45rem; }
+            .legend-items { gap: 6px; }
+            .legend-item { font-size: 0.6rem; }
+            .legend-item .color-box { width: 14px; height: 14px; }
+            .admin-stats { grid-template-columns: 1fr; }
+            .holiday-item { font-size: 0.65rem; padding: 3px 6px; }
+            .holiday-item .remove-btn { font-size: 0.75rem; }
+        }
+
+        /* ========== DARK MODE ========== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-main: #0d1a2a;
+                --bg-card: #1a2a3a;
+                --text-dark: #e8f0f8;
+                --text-muted: #a0c0d0;
+                --text-light: #6a8a9a;
+                --border-color: #2a3a4a;
+                --primary-light: #1a3a5a;
+                --shadow: 0 2px 12px rgba(0,0,0,0.3);
+            }
+            body { background: var(--bg-main); }
+            .annual-leave-table td.fixed-col { background: #1a2a3a; }
+            .annual-leave-table tbody tr:hover td { background: #2a3a4a; }
+            .annual-leave-table tbody tr:hover td.fixed-col { background: #2a3a4a; }
+            .annual-leave-table td { border-color: #2a3a4a; }
+            .day-weekend { background: #1a2a2a; }
+            .day-cell.day-holiday { background: #1a1a3a; }
+            .calendar-day { background: #1a2a3a; }
+            .calendar-day.weekend { background: #1a2a2a; }
+            .calendar-day.holiday { background: #1a1a3a; border-color: #6c3483; }
+            .calendar-day .holiday-name { background: rgba(108, 52, 131, 0.2); color: #b39ddb; }
+            .admin-select, .admin-input { background: #0d1a2a; color: #e8f0f8; border-color: #2a3a4a; }
+            .stat-item { background: #0d1a2a; }
+            .summary-item { background: #0d1a2a; }
+            .holiday-item { background: #0d1a2a; }
+            .profile-menu { background: #1a2a3a; color: #e8f0f8; }
+            .app-footer { background: #1a2a3a; border-color: #2a3a4a; }
+            .message-toast { background: #1a3a5a; }
+            .session-role { background: #1a3a5a; color: #7ab8d4; }
+            .scroll-content::-webkit-scrollbar-track { background: #0d1a2a; }
+            .scroll-content::-webkit-scrollbar-thumb { background: #2a4a6a; }
+            .loading-content { background: #1a2a3a; }
+            .form-feedback.success { background: #1a3a2a; color: #5dbb7a; }
+            .form-feedback.error { background: #3a1a1a; color: #e67e6a; }
+            .calendar-header { background: #1a3a5a; }
+            .calendar-day { border-color: #2a3a4a; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- ========== HEADER ========== -->
+        <header class="app-header">
+            <div class="logo">
+                <span class="icon">📅</span>
+                <span>Annual Leave</span>
+            </div>
+            <div class="nav-buttons">
+                <a href="index.html" class="nav-link">🏠 Home</a>
+                <a href="leaveapp.html" class="nav-link active">🌴 Leave</a>
+                <a href="dutychange.html" class="nav-link">🔄 Duty</a>
+                <div class="profile-btn-container">
+                    <button class="profile-icon-btn" id="profileButton">
+                        <span class="profile-avatar" id="profileAvatar">👤</span>
+                        <span class="profile-name-short" id="profileShortName">Login</span>
+                    </button>
+                    <div class="profile-menu" id="profileMenu">
+                        <div class="profile-menu-item" id="profileViewAction">📋 View Profile</div>
+                        <hr class="menu-divider">
+                        <div class="profile-menu-item logout" id="logoutAction">🚪 Logout</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========== SCROLLABLE CONTENT ========== -->
+        <div class="scroll-content">
+
+            <!-- ===== SESSION STATUS ===== -->
+            <div class="session-status" id="sessionStatus" style="display: none;">
+                <div class="session-user">
+                    👤 Logged in as: <strong id="sessionUserName">—</strong>
+                    <span class="session-role" id="sessionUserRole">—</span>
+                </div>
+            </div>
+
+            <!-- ===== MONTH SELECTOR ===== -->
+            <div class="month-selector">
+                <button id="prevMonthBtn" class="month-nav">◀</button>
+                <div class="month-display">
+                    <span id="currentMonthDisplay">January 2024</span>
+                </div>
+                <button id="nextMonthBtn" class="month-nav">▶</button>
+                <button id="todayBtn" class="month-nav today-btn">Today</button>
+            </div>
+
+            <!-- ===== VIEW TOGGLE ===== -->
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="staff">👥 Staff View</button>
+                <button class="view-btn" data-view="calendar">📅 Calendar View</button>
+            </div>
+
+            <!-- ===== STAFF VIEW ===== -->
+            <div id="staffView" class="staff-view-container">
+                <div class="table-wrapper">
+                    <table class="annual-leave-table" id="staffLeaveTable">
+                        <thead>
+                            <tr id="tableHeader">
+                                <th class="fixed-col">Name</th>
+                                <th class="fixed-col">RC No</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Rows will be added by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ===== CALENDAR VIEW ===== -->
+            <div id="calendarView" class="calendar-view-container" style="display: none;">
+                <div class="calendar-scroll-wrapper">
+                    <div id="calendarGrid">
+                        <!-- Calendar will be rendered by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== LEGEND ===== -->
+            <div class="legend-section">
+                <div class="legend-title">📌 Color Legend</div>
+                <div class="legend-items" id="legendItems">
+                    <!-- Legend items will be added by JavaScript -->
+                </div>
+            </div>
+
+            <!-- ===== ADMIN PANEL - LEAVE ALLOCATION ===== -->
+            <div class="admin-panel" id="adminPanel" style="display: none;">
+                <div class="admin-title">🛡️ Admin - Allocate Leave</div>
+                
+                <div class="admin-controls">
+                    <div class="field-row">
+                        <label>Select Staff <span class="required">*</span></label>
+                        <select id="adminStaffSelect" class="admin-select"></select>
+                    </div>
+                    <div class="field-row">
+                        <label>Start Date <span class="required">*</span></label>
+                        <input type="date" id="adminStartDate" class="admin-input">
+                    </div>
+                    <div class="field-row">
+                        <label>End Date <span class="required">*</span></label>
+                        <input type="date" id="adminEndDate" class="admin-input">
+                    </div>
+                    <div class="field-row">
+                        <label>Leave Type <span class="required">*</span></label>
+                        <select id="adminLeaveType" class="admin-select">
+                            <option value="annual">Annual Leave</option>
+                            <option value="sick">Sick Leave</option>
+                            <option value="frl">FRL</option>
+                            <option value="training">Training</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="field-row">
+                        <label>Reason (Optional)</label>
+                        <input type="text" id="adminLeaveReason" class="admin-input" placeholder="Reason for leave...">
+                    </div>
+                </div>
+
+                <div class="admin-actions">
+                    <button id="allocateLeaveBtn" class="btn-primary">📤 Allocate Leave</button>
+                    <button id="removeLeaveBtn" class="btn-danger">🗑️ Remove Leave</button>
+                    <button id="clearStaffLeavesBtn" class="btn-danger" style="background:#888;">🧹 Clear All</button>
+                </div>
+
+                <div id="adminFeedback" class="form-feedback"></div>
+
+                <div class="admin-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Allocated</span>
+                        <span class="stat-value" id="totalAllocated">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Staff with Leave</span>
+                        <span class="stat-value" id="staffWithLeave">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Selected Staff</span>
+                        <span class="stat-value" id="selectedStaffLeaveCount">0</span>
+                    </div>
+                </div>
+
+                <!-- Staff Leave Summary -->
+                <div class="staff-leave-summary" id="staffLeaveSummary">
+                    <div class="summary-title">📋 Staff Leave Summary</div>
+                    <div id="staffLeaveSummaryList">
+                        <div class="empty-state">Select a staff to view their leave summary</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PUBLIC HOLIDAYS SECTION ===== -->
+            <div class="admin-panel" id="holidayPanel" style="display: none;">
+                <div class="admin-title">🎉 Public Holidays Management</div>
+                
+                <div class="holiday-controls">
+                    <div class="field-row">
+                        <label>Holiday Date <span class="required">*</span></label>
+                        <input type="date" id="holidayDate" class="admin-input">
+                    </div>
+                    <div class="field-row">
+                        <label>Holiday Name <span class="required">*</span></label>
+                        <input type="text" id="holidayName" class="admin-input" placeholder="e.g., Independence Day">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                    <button id="addHolidayBtn" class="btn-primary" style="flex:1;">➕ Add Holiday</button>
+                </div>
+
+                <div id="holidayFeedback" class="form-feedback"></div>
+
+                <div class="holiday-list">
+                    <div class="sub-title">📋 Current Public Holidays</div>
+                    <div id="holidayList">
+                        <div class="empty-state">No additional public holidays added</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== FOOTER ===== -->
+            <div class="app-footer">
+                📅 Click + to add leave | Click colored days to remove (Admin only)
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== TOAST ========== -->
+    <div id="messageToast" class="message-toast"></div>
+
+    <!-- ========== LOADING POPUP ========== -->
+    <div id="loadingPopup" class="loading-popup">
+        <div class="loading-content">
+            <div id="loadingSpinner" class="spinner"></div>
+            <div class="loading-title" id="loadingTitle">Processing...</div>
+            <div class="loading-subtitle" id="loadingSubtitle">Please wait</div>
+        </div>
+    </div>
+
+    <!-- ========== SESSION CHECK ========== -->
+    <script>
+        const SESSION_KEY = 'staffPortalSession';
+        
+        function getSession() {
+            try {
+                const data = localStorage.getItem(SESSION_KEY);
+                if (data) {
+                    const session = JSON.parse(data);
+                    if (Date.now() - session.timestamp > 24 * 60 * 60 * 1000) {
+                        localStorage.removeItem(SESSION_KEY);
+                        return null;
+                    }
+                    return session;
+                }
+                return null;
+            } catch {
+                return null;
+            }
+        }
+        
+        function checkSession() {
+            const session = getSession();
+            if (!session) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            const statusEl = document.getElementById('sessionStatus');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                document.getElementById('sessionUserName').textContent = session.name;
+                document.getElementById('sessionUserRole').textContent = session.role;
+            }
+            
+            document.getElementById('profileShortName').textContent = session.name.split(' ')[0];
+            document.getElementById('profileAvatar').textContent = session.name.charAt(0).toUpperCase();
+            
+            window.sessionData = session;
+        }
+        
+        document.addEventListener('DOMContentLoaded', checkSession);
+    </script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "/staff.js": "/staff.js"
+            }
+        }
+    </script>
+    <script type="module" src="script/annualleave.js"></script>
+</body>
+</html>
